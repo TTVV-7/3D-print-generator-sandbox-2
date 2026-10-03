@@ -101,6 +101,8 @@
   #specs dd { margin: 0; font-variant-numeric: tabular-nums; }
   #specs .warn { grid-column: 1 / -1; background: var(--warning-bg); color: var(--warning);
                  border-radius: var(--radius-100); padding: var(--space-200); }
+  .warn-box { margin: 0; background: var(--warning-bg); color: var(--warning); font-size: 14px;
+              border-radius: var(--radius-100); padding: var(--space-200) var(--space-300); }
   #specs .credit { grid-column: 1 / -1; color: var(--text-secondary); font-size: 12px; }
   @media (max-width: 800px) {
     body { flex-direction: column; height: auto; }
@@ -114,8 +116,8 @@
   <div>
     <h1>Topo maps</h1>
     <p class="sub">A piece of the real world in relief: the ground from satellite elevation data,
-      the sea, lakes and rivers from OpenStreetMap in a second colour, and a pin standing on each
-      place you name.</p>
+      the sea, lakes and rivers in blue, the forest in greens by tree species, a marker on every
+      mine, and a pin standing on each place you name.</p>
   </div>
 
   <section>
@@ -180,14 +182,64 @@ Whistler, BC</textarea>
   </section>
 
   <section>
+    <h2>Mines</h2>
+    <label class="field"><span>Show</span>
+      <select id="topo_mines">
+        <option value="off">No mines</option>
+        <option value="mines" selected>Mines: working and past producers</option>
+        <option value="prospects">Mines and prospects</option>
+        <option value="all">Every occurrence, down to a showing</option>
+      </select>
+    </label>
+    <p class="hint">Each site gets a small marker whose shape says how far it got: a
+      <b>headframe</b> (a tower with a point) for a working mine, a <b>spoil heap</b> (a low
+      pyramid) for a past producer, a <b>hex stud</b> for a prospect and a <b>dot</b> for a
+      showing. In BC they come from the province's MINFILE; anywhere else from the USGS. Where a
+      district crowds them, the bigger operations win and the rest are left off.</p>
+    <div class="field"><span>Marker height</span>
+      <div class="slider"><input type="range" id="topo_mine_h" min="2" max="8" step="0.5" value="4"><output id="topo_mine_h_v">4 mm</output></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Forests</h2>
+    <label class="field"><span>Colour the forest</span>
+      <select id="topo_forest">
+        <option value="off">Not at all</option>
+        <option value="one">One green</option>
+        <option value="two" selected>Conifer and broadleaf</option>
+        <option value="species">By species: six greens</option>
+      </select>
+    </label>
+    <p class="hint">The top of the land, wherever it is wooded, in shades of green. In BC each patch is
+      coloured by its leading tree species, from the province's forest inventory: Douglas-fir,
+      hemlock, cedar, spruce and true fir, pine and larch, and broadleaf. Outside BC there is no
+      species data, so the forest is OpenStreetMap's woodland in one green.</p>
+    <div class="field"><span>Forest depth</span>
+      <div class="slider"><input type="range" id="topo_skin" min="0.2" max="1.6" step="0.2" value="0.6"><output id="topo_skin_v">0.6 mm</output></div>
+    </div>
+  </section>
+
+  <section>
     <h2>Colours</h2>
     <div class="colours">
-      <label>Land<input type="color" id="c0" value="#f5f2ec"></label>
-      <label>Water<input type="color" id="c1" value="#5aa9e6"></label>
-      <label>Pins<input type="color" id="c2" value="#ff5b1f"></label>
+      <label data-slot="0">Land<input type="color" id="c0" value="#f5f2ec"></label>
+      <label data-slot="1">Water<input type="color" id="c1" value="#5aa9e6"></label>
+      <label data-slot="2">Pins<input type="color" id="c2" value="#ff5b1f"></label>
+      <label data-slot="3">Mines<input type="color" id="c3" value="#c9a227"></label>
+      <label data-slot="4" hidden>Forest<input type="color" id="c4" value="#4f7d4a"></label>
+      <label data-slot="5" hidden>Conifer<input type="color" id="c5" value="#2f5e3a"></label>
+      <label data-slot="6" hidden>Douglas-fir<input type="color" id="c6" value="#2d5a3d"></label>
+      <label data-slot="7" hidden>Hemlock<input type="color" id="c7" value="#4f8f5f"></label>
+      <label data-slot="8" hidden>Cedar<input type="color" id="c8" value="#6b8f3a"></label>
+      <label data-slot="9" hidden>Spruce/fir<input type="color" id="c9" value="#1b3a2f"></label>
+      <label data-slot="10" hidden>Pine/larch<input type="color" id="c10" value="#a3b84f"></label>
+      <label data-slot="11" hidden>Broadleaf<input type="color" id="c11" value="#b8dc8c"></label>
     </div>
     <p class="hint">A pale land colour shows the relief best: the shadows do the work. Each is its own
-      solid, so the 3MF opens with each on its own filament and nothing to paint.</p>
+      solid, so the 3MF opens with each on its own filament and nothing to paint. Two swatches set to
+      the same colour share one filament.</p>
+    <p class="warn-box" id="spools_warn" hidden></p>
   </section>
 
   <section>
@@ -197,8 +249,8 @@ Whistler, BC</textarea>
       <button type="button" id="dl_3mf" disabled>Download 3MF</button>
       <button type="button" class="secondary" id="dl_stl" disabled>STL</button>
     </div>
-    <p class="hint">The STL is all three welded into one, for a single-colour printer; paint the water
-      afterwards &mdash; its pockets are the outline.</p>
+    <p class="hint">The STL is every colour welded into one, for a single-colour printer; paint the
+      water and the forest afterwards &mdash; their pockets are the outline.</p>
   </section>
 </aside>
 
@@ -221,9 +273,20 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const $ = id => document.getElementById(id);
 const SLIDERS = { topo_size: " mm", topo_exag: "", topo_base: " mm", topo_river: " mm",
-                  topo_depth: " mm", topo_pin_h: " mm" };
+                  topo_depth: " mm", topo_pin_h: " mm", topo_mine_h: " mm", topo_skin: " mm" };
 const CHECKS = ["topo_ocean", "topo_lakes", "topo_rivers", "topo_streams"];
-const COLOUR_IDS = ["c0", "c1", "c2"];
+// one per colour slot, in the server's order: land, water, pins, mines, then
+// the forest's greens (solids.SLOTS)
+const SLOTS = ["body", "pattern", "primary", "secondary", "forest", "conifer",
+               "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf"];
+const COLOUR_IDS = SLOTS.map((_, i) => `c${i}`);
+const SLOT_NAMES = Object.fromEntries([...document.querySelectorAll("[data-slot]")]
+  .map(l => [SLOTS[+l.dataset.slot], l.firstChild.textContent.trim()]));
+const STATUS_NAMES = { producer: ["working mine", "working mines"],
+                       past: ["past producer", "past producers"],
+                       developed: ["developed prospect", "developed prospects"],
+                       prospect: ["prospect", "prospects"], showing: ["showing", "showings"] };
+const HEADS = 4;     // the filaments a Snapmaker U1 holds
 const CAN_INFLATE = "DecompressionStream" in window;
 
 /* ---- the viewer: z up, as the printer sees it ---- */
@@ -263,7 +326,6 @@ function show(buffer, runs) {
   const dv = new DataView(buffer), n = dv.getUint32(80, true);
   const pos = new Float32Array(n * 9), col = new Float32Array(n * 9);
   const colours = COLOUR_IDS.map(id => new THREE.Color($(id).value));
-  colours.push(colours[2]);
   let tri = 0;
   for (const [slot, count] of runs) {
     const c = colours[slot] || colours[0];
@@ -301,7 +363,6 @@ function show(buffer, runs) {
 function recolour() {
   if (!mesh) return;
   const colours = COLOUR_IDS.map(id => new THREE.Color($(id).value));
-  colours.push(colours[2]);
   const col = mesh.geometry.getAttribute("color");
   let tri = 0;
   for (const [slot, count] of mesh.userData.runs) {
@@ -316,6 +377,7 @@ function recolour() {
 function params(format) {
   const p = { topo_pins: $("topo_pins").value, topo_centre: $("topo_centre").value,
               topo_span: $("topo_span").value, topo_shape: $("topo_shape").value,
+              topo_mines: $("topo_mines").value, topo_forest: $("topo_forest").value,
               colours: COLOUR_IDS.map(id => $(id).value), format, gzip: CAN_INFLATE };
   for (const id of Object.keys(SLIDERS)) p[id] = $(id).value;
   for (const id of CHECKS) p[id] = $(id).checked;
@@ -346,6 +408,7 @@ async function rebuild() {
     if (mine !== seq) return;
     info = got;
     show(buffer, info.preview);
+    swatches();
     readout();
     $("error").hidden = true;
     $("dl_3mf").disabled = $("dl_stl").disabled = false;
@@ -380,6 +443,8 @@ function readout() {
     line("tallest", `${mm(info.total_z)} mm with the pins`),
     line("water", water.length ? list(water) : "none here"),
     info.pins.length ? line("pins", list(info.pins.map(p => p.on_map ? esc(p.name) : `<s>${esc(p.name)}</s>`))) : "",
+    mineLine(line),
+    forestLine(line),
     line("grid", `${mm(info.cell)} mm`),
     line("uses", `${info.volume.toFixed(1)} cm&sup3;`),
     info.capped ? `<span class="warn">The stretch was held to &times;${info.exaggerate}: any more
@@ -387,9 +452,53 @@ function readout() {
     off.length ? `<span class="warn">${list(off.map(p => esc(p.name)))} ${off.length === 1 ? "is" : "are"}
       off the map &mdash; make it bigger across, or clear the middle to fit the pins.</span>` : "",
     info.water_note ? `<span class="warn">${esc(info.water_note)}</span>` : "",
+    info.mine_note ? `<span class="warn">${esc(info.mine_note)}</span>` : "",
+    info.forest_note ? `<span class="warn">${esc(info.forest_note)}</span>` : "",
     info.too_big ? `<span class="warn">${mm(info.w)} mm is bigger than a ${info.bed} mm bed.</span>` : "",
     `<span class="credit">${esc(info.attribution)}</span>`,
   ].join("");
+}
+
+/* What the mines are: how many of each kind made it onto the map, and the
+   names of the ones that were (or are) worked, with what came out of them. */
+function mineLine(line) {
+  if (info.mines === "off") return "";
+  const sites = info.mine_sites;
+  const n = st => sites.filter(m => m.status === st).length;
+  const kinds = Object.keys(STATUS_NAMES).filter(n)
+    .map(st => `${n(st)} ${STATUS_NAMES[st][n(st) === 1 ? 0 : 1]}`);
+  const worked = sites.filter(m => m.status === "producer" || m.status === "past").slice(0, 6)
+    .map(m => `${esc(m.name)}${m.commodities.length ? ` (${esc(m.commodities.slice(0, 2).join(", ").toLowerCase())})` : ""}`);
+  const total = Object.values(info.mine_counts).reduce((a, b) => a + b, 0);
+  const more = total - sites.length;
+  return line("mines", sites.length ? list(kinds) : "none to show here")
+    + (worked.length ? line("worked", list(worked)) : "")
+    + (more > 0 ? line("", `${more} more in the area not shown${info.mine_crowded
+        ? ` (${info.mine_crowded} too close to a bigger one)` : ""}`) : "");
+}
+
+function forestLine(line) {
+  if (info.forest === "off" || !info.forest_source) return "";
+  const shares = Object.entries(info.forest_share).sort((a, b) => b[1] - a[1])
+    .map(([slot, pct]) => `${esc(SLOT_NAMES[slot] || slot)} ${pct}%`);
+  return line("forest", `${list(shares)} of the map`)
+    + line("", `<span style="color:var(--text-secondary)">${esc(info.forest_source)}</span>`);
+}
+
+/* Only the colours this map uses get a swatch, and more filaments than the
+   printer holds is said once, here, rather than refused. */
+function swatches() {
+  const used = new Set(info.slots);
+  for (const l of document.querySelectorAll("[data-slot]"))
+    l.hidden = !used.has(SLOTS[+l.dataset.slot]) && +l.dataset.slot > 0;
+  spoolCount();
+}
+function spoolCount() {
+  if (!info) return;
+  const n = new Set(info.slots.map(slot => $(`c${SLOTS.indexOf(slot)}`).value.toLowerCase())).size;
+  $("spools_warn").hidden = n <= HEADS;
+  $("spools_warn").textContent = `This map uses ${n} colours and a four-head printer holds ${HEADS}. `
+    + "Give some swatches the same colour, colour the forest more simply, or plan on colour changes.";
 }
 
 function stem() {
@@ -424,11 +533,12 @@ for (const [id, unit] of Object.entries(SLIDERS)) {
 }
 // Places rebuild when they are changed -- on leaving the box, or Enter in a
 // one-line one -- not on every key: half a place name is somewhere else.
-for (const id of ["topo_pins", "topo_centre", "topo_span", "topo_shape", ...CHECKS])
+for (const id of ["topo_pins", "topo_centre", "topo_span", "topo_shape", "topo_mines",
+                  "topo_forest", ...CHECKS])
   $(id).addEventListener("change", queue);
 for (const id of ["topo_centre", "topo_span"])
   $(id).addEventListener("keydown", e => { if (e.key === "Enter") $(id).blur(); });
-for (const id of COLOUR_IDS) $(id).addEventListener("input", recolour);
+for (const id of COLOUR_IDS) $(id).addEventListener("input", () => { recolour(); spoolCount(); });
 $("topo_shape").addEventListener("change", () => { framed = false; });
 $("dl_3mf").addEventListener("click", e => download("3mf", e.currentTarget));
 $("dl_stl").addEventListener("click", e => download("stl", e.currentTarget));

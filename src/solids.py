@@ -14,10 +14,14 @@ from shapely.ops import unary_union
 # face, but its info reports one, as theirs do.
 FACE = 0.6
 
-# The four colours, in the order the 3MF's materials and the viewer use them.
-# For a map: land, water, pins, and one spare.
-SLOTS = ("body", "pattern", "primary", "secondary")
-COLOURS = ("#f5f2ec", "#5aa9e6", "#ff5b1f", "#ff5b1f")
+# The colours, in the order the 3MF's materials and the viewer use them.
+# For a map: land, water, pins and mines, then the forest's shades of green
+# -- one for all of it, conifer and broadleaf, or one per species group.
+SLOTS = ("body", "pattern", "primary", "secondary",
+         "forest", "conifer", "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf")
+COLOURS = ("#f5f2ec", "#5aa9e6", "#ff5b1f", "#c9a227",
+           "#4f7d4a", "#2f5e3a", "#2d5a3d", "#4f8f5f", "#6b8f3a", "#1b3a2f", "#a3b84f",
+           "#b8dc8c")
 
 
 def boolean(op, meshes):
@@ -204,7 +208,7 @@ def export_3mf(parts, colours=COLOURS, gap=6.0, row_w=None):
 HEADS = 4       # filaments the printer holds at once: the Snapmaker U1's four heads
 
 
-def export_3mf_tools(parts, filaments, gap=6.0, row_w=None, heads=HEADS, pauses=()):
+def export_3mf_tools(parts, filaments, gap=6.0, row_w=None, heads=None, pauses=()):
     """The parts as a 3MF a slicer opens ready to print: one object per part,
     one volume per colour slot, and each volume already on its own filament.
 
@@ -228,6 +232,11 @@ def export_3mf_tools(parts, filaments, gap=6.0, row_w=None, heads=HEADS, pauses=
     files its own pauses, so the slicer adds them rather than you finding the
     layer by hand.  print_z is the top of the first layer printed *after* the
     pause.
+
+    `heads`, if given, refuses a design that needs more filaments than the
+    printer holds.  The map leaves it off -- a forest by species can be a
+    dozen colours, for a printer with an AMS or a patient hand on the
+    colour changes -- and the page warns instead.
     """
     import io
     import zipfile
@@ -241,7 +250,7 @@ def export_3mf_tools(parts, filaments, gap=6.0, row_w=None, heads=HEADS, pauses=
         if key not in [(t["material"], t["hex"].lower()) for t in tools]:
             tools.append(f)
         extruder[slot] = 1 + [(t["material"], t["hex"].lower()) for t in tools].index(key)
-    if len(tools) > heads:
+    if heads and len(tools) > heads:
         raise ValueError(f"this design needs {len(tools)} filaments and the printer holds "
                          f"{heads} -- use the same spool for two of the colours")
 

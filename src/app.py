@@ -3,8 +3,8 @@
     python3 src/app.py            # then open http://127.0.0.1:8765
 
 Name some places, watch the map turn in the viewer, download it.  The 3MF
-carries land, water and pins as separate volumes, each on its own filament,
-so the slicer opens it ready to print in three colours.  src/topo.py does the
+carries land, water, pins, mines and each shade of forest as separate
+volumes, each on its own filament, so the slicer opens it ready to print.  src/topo.py does the
 building; this is the page and the one endpoint it talks to, /api/model --
 the same path api/model.py answers on Vercel.
 """
@@ -31,7 +31,8 @@ MATERIAL = re.compile(r"[A-Za-z0-9][A-Za-z0-9 +._-]{0,23}$")
 # them reuses the last build rather than fetching and cutting it again.
 GEOMETRY = ("topo_pins", "topo_centre", "topo_span", "topo_size", "topo_shape",
             "topo_exag", "topo_base", "topo_depth", "topo_river", "topo_pin_h",
-            "topo_ocean", "topo_lakes", "topo_rivers", "topo_streams")
+            "topo_ocean", "topo_lakes", "topo_rivers", "topo_streams",
+            "topo_mines", "topo_mine_h", "topo_forest", "topo_skin")
 RECENT = {}
 BUILD = threading.Lock()
 
@@ -41,7 +42,7 @@ def palette(params):
     hex colour."""
     given = params.get("colours") or []
     return tuple(c if isinstance(c, str) and HEX.match(c) else d
-                 for c, d in zip(list(given) + [None] * 4, solids.COLOURS))
+                 for c, d in zip(list(given) + [None] * len(solids.COLOURS), solids.COLOURS))
 
 
 def filaments(params, colours):
@@ -98,6 +99,8 @@ def model(params):
             shape = params.get("topo_shape") or "rect"
             if shape not in topo.SHAPES:
                 raise ValueError(f"no such shape: {shape}")
+            mines = params.get("topo_mines") or "mines"
+            forest = params.get("topo_forest") or "two"
             RECENT[key] = topo.build(
                 pins, centre=centre, span=num("topo_span", 0.0) or None,
                 size=num("topo_size", topo.SIZE), shape=shape,
@@ -105,7 +108,9 @@ def model(params):
                 base=num("topo_base", topo.BASE), depth=num("topo_depth", topo.DEPTH),
                 river=num("topo_river", topo.RIVER), pin_h=num("topo_pin_h", topo.PIN),
                 ocean=flag("topo_ocean", True), lakes=flag("topo_lakes", True),
-                rivers=flag("topo_rivers", True), streams=flag("topo_streams", False))
+                rivers=flag("topo_rivers", True), streams=flag("topo_streams", False),
+                mines=mines, mine_h=num("topo_mine_h", topo.MINE),
+                forest=forest, skin=num("topo_skin", topo.SKIN))
             while len(RECENT) > 8:
                 del RECENT[next(iter(RECENT))]
         parts, info = RECENT[key]

@@ -1,15 +1,17 @@
 # Topo map generator
 
 A piece of the real world in relief, ready to 3D print: the ground from
-satellite elevation data, the sea, lakes and rivers from OpenStreetMap in a
-second colour, and a map pin standing on each place you name.  Plain Python
--- shapely for the 2-D work, trimesh and manifold for the solids.
+satellite elevation data, the sea, lakes and rivers in blue, the forest in
+shades of green by its leading tree species, a marker on every mine, and a
+map pin standing on each place you name.  Plain Python -- shapely for the
+2-D work, trimesh and manifold for the solids.
 
 Moved here from [TTVV-7/3D-print-sandbox](https://github.com/TTVV-7/3D-print-sandbox),
 where it was the sixth shape in that app's generator.  This repository has
-the map on its own: `src/topo.py` builds it, `src/solids.py` is the part of
-the sandbox's `cards.py` it needs (the booleans, the plate and the two 3MF
-writers), and the page is a topo-only one.
+the map on its own: `src/topo.py` builds it, `src/layers.py` fetches the
+mines and the forests, `src/solids.py` is the part of the sandbox's
+`cards.py` it needs (the booleans, the plate and the two 3MF writers), and
+the page is a topo-only one.
 
 ## Running it
 
@@ -109,13 +111,71 @@ at the point.  The cone is 17 degrees off vertical, so it prints without
 supports.  A pin whose place falls off the map is left out and named in the
 readout.
 
+## The mines
+
+Every mine site on the map gets a small marker, its shape saying how far the
+site got:
+
+| | |
+|---|---|
+| headframe -- a square tower with a point | a working mine |
+| spoil heap -- a low pyramid | a past producer |
+| hex stud | a developed prospect, or a prospect (shorter) |
+| dot | a showing: mineral found, never worked |
+
+*Show* picks how far down that list to go: mines (the default), mines and
+prospects, or everything.  Each marker is a convex solid whose sides are no
+shallower than 45 degrees, so it prints without support, and it stands on the
+ground on the same stem as a pin.  A mining district is hundreds of sites in
+a few km -- Leadville, Colorado has over four hundred on a 25 km map -- and
+markers that touch print as one lump, so the working mines are placed first,
+then the past producers and so on, and a site whose marker would touch one
+already placed is left off.  The readout says how many, and names the worked
+ones with what came out of them.
+
+Inside British Columbia the sites are the BC Geological Survey's
+[MINFILE](https://minfile.gov.bc.ca); everywhere else they are the USGS
+[Mineral Resources Data System](https://mrdata.usgs.gov/mrds/).  MRDS is
+worldwide but strongest in the US, and no longer updated.
+
+## The forest
+
+The top of the land, wherever it is wooded, is a thin skin -- *Forest depth*,
+0.6 mm by default -- in a shade of green: one green for all of it, a dark one
+for conifers and a pale one for broadleaf, or six, one per species group.
+Alpine, rock, farmland and towns stay the land colour, so the treeline draws
+itself.
+
+In BC the colour is the leading species of each stand in the province's
+[Vegetation Resources Inventory](https://www2.gov.bc.ca/gov/content/industry/forestry/managing-our-forest-resources/forest-inventory):
+Douglas-fir, hemlock, cedar and cypress, spruce and true fir, pine and larch,
+and broadleaf (alder, aspen, birch, maple and the rest).  An 85 km map is a
+hundred thousand inventory polygons -- far too many to download -- so the
+province's map server draws them, one flat colour per group and no
+antialiasing, in tiles fetched at once, and the picture is read back as a
+grid at the model's own resolution.  Checked against the polygons
+themselves, the shares come out within a percent.
+
+Outside BC there is no free species map, so the forest is OpenStreetMap's
+woodland, from the same vector tiles as the water, in the one green.
+
+## How many colours
+
+Land, water, pins and mines are four; the forest adds one, two or six.  A
+four-head printer holds four, so the page says when a map needs more.  Two
+swatches set to the same colour share a filament in the 3MF, so the fix is
+usually to give the mines the pins' colour, or colour the forest more
+simply.  The 3MF itself is written with however many filaments the map
+uses, for a printer with an AMS or a patient hand on the colour changes.
+
 ## Printing them
 
-Flat on the plate, land colour first.  The water and the pins are their own
-solids sitting in pockets in the land, so a multi-material printer swaps
-filament only on the layers where the water and the pins are.  A single
-colour printer can print the land alone (the STL is all three welded into
-one) and the water painted afterwards: its pockets are the outline.  A pale
+Flat on the plate, land colour first.  The water, the forest, the pins and
+the mines are their own solids sitting in pockets in the land, so a
+multi-material printer swaps filament only on the layers where they are.  A
+single colour printer can print the land alone (the STL is every colour
+welded into one) and the water and forest painted afterwards: their pockets
+are the outline.  A pale
 land colour shows the relief best; the shadows do the work.
 
 ## From a terminal
@@ -124,6 +184,7 @@ land colour shows the relief best; the shadows do the work.
 python3 src/topo.py "Squamish, BC" "Whistler, BC" --exaggerate 2.5
 python3 src/topo.py --centre "Lake Louise, Alberta" --span 15 --shape square --streams
 python3 src/topo.py "49.2867, -123.1179" --span 60 --shape round --out stl/van.stl
+python3 src/topo.py --centre "Leadville, Colorado" --span 25 --mines all --forest one
 ```
 
 writes `stl/topo.3mf` unless `--out` says otherwise.  `--size` is the width in

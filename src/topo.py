@@ -61,6 +61,7 @@ from shapely import affinity
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
+import layers
 import solids
 
 # The model.  150 mm is a coaster-to-tile sized piece that still fits the
@@ -114,6 +115,22 @@ PIN_HEAD = 0.3            # the ball's radius, as a share of the height
 PIN_NECK = 0.8            # the radius where it meets the ground
 PIN_STEM = 2.0            # how far the stem goes down into the ground
 
+# The mines: a small marker on each, its shape saying how far the site got
+# -- a headframe for a working mine, a spoil heap for one that was, a stud
+# for a prospect, a dot for a showing.  MINE is the headframe's height; the
+# others are in proportion.  Every one is a convex solid with sides no
+# shallower than 45 degrees, so it prints without support, and it goes into
+# the ground on the same stem as a pin.
+MINE = 4.0
+MINES = ("off",) + tuple(layers.SHOW)
+
+# The forest: the top SKIN mm of the land, wherever it is wooded, in a shade
+# of green -- thick enough to read from the side, as the water is.  Patches
+# smaller than MIN_FOREST mm^2 on the model are left in the land colour.
+SKIN = 0.6
+MIN_FOREST = 2.0
+FOREST_PX = 1600          # the most pixels across the species picture is asked for
+
 BED = 256.0
 MAX_PINS = 24             # each is a lookup, and a lookup is a second
 
@@ -149,23 +166,28 @@ _MEMO_LOCK = threading.Lock()
 CACHE = Path(os.environ.get("TOPO_CACHE") or Path(tempfile.gettempdir()) / "topo-tiles")
 
 
-def fetch(url, timeout=25):
+def fetch(url, timeout=25, form=None):
     """The bytes at `url`, from memory, from the disk cache, or from the
     network -- in that order.  Tiles do not change between one build and
     the next, and a slider dragged across the page is a dozen builds of the
-    same tiles."""
+    same tiles.  With `form`, a POST of it, cached the same way: a
+    request too long to go in a URL."""
+    key = url if form is None else url + "\n" + form
     with _MEMO_LOCK:
-        if url in _MEMO:
-            return _MEMO[url]
-    path = CACHE / hashlib.sha1(url.encode()).hexdigest()
+        if key in _MEMO:
+            return _MEMO[key]
+    path = CACHE / hashlib.sha1(key.encode()).hexdigest()
     data = None
     try:
         data = path.read_bytes()
     except OSError:
         pass
     if data is None:
-        req = urllib.request.Request(url, headers={"User-Agent": AGENT,
-                                                   "Accept-Encoding": "gzip"})
+        headers = {"User-Agent": AGENT, "Accept-Encoding": "gzip"}
+        if form is not None:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        req = urllib.request.Request(url, data=None if form is None else form.encode(),
+                                     headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = r.read()
@@ -176,6 +198,8 @@ def fetch(url, timeout=25):
                 raise
         if data[:2] == b"\x1f\x8b":
             data = gzip.decompress(data)
+        if b"ServiceException" in data[:2000]:
+            return data                   # a map server's error: not one to keep
         try:
             CACHE.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
@@ -184,7 +208,7 @@ def fetch(url, timeout=25):
     with _MEMO_LOCK:
         if len(_MEMO) > 512:
             _MEMO.clear()
-        _MEMO[url] = data
+        _MEMO[key] = data
     return data
 
 
@@ -472,18 +496,19 @@ def decode(data, want):
 
 def water(u0, v0, u1, v1, zoom):
     """The water in the box, in world units: {"ocean": [...], "lake": [...],
-    "river": [...] polygons, "waterway": [(class, line), ...]}."""
+    "river": [...] polygons, "waterway": [(class, line), ...]} -- and, from
+    the same tiles, OpenStreetMap's woodland as "wood" polygons."""
     zoom, xs, ys = tiles_for(u0, v0, u1, v1, min(zoom, VECTOR_ZOOM_MAX), limit=36)
     n = 2 ** zoom
     template = vector_url()
     urls = [template.format(z=zoom, x=x % n, y=y) for y in ys for x in xs]
-    found = {"ocean": [], "lake": [], "river": [], "waterway": []}
+    found = {"ocean": [], "lake": [], "river": [], "waterway": [], "wood": []}
     for k, data in enumerate(fetch_all(urls)):
         if not data:
             continue
         i, j = divmod(k, len(xs))
         tx, ty = xs[j], ys[i]
-        layers = decode(data, ("water", "waterway"))
+        layers = decode(data, ("water", "waterway", "landcover"))
         for layer, items in layers.items():
             for cls, props, g, extent in items:
                 # tile units to world units
@@ -496,6 +521,10 @@ def water(u0, v0, u1, v1, zoom):
                         found["lake"].append(g)
                     elif cls in RIVER_AREA:
                         found["river"].append(g)
+                elif layer == "landcover":
+                    # the forest outside BC, where there is no species data
+                    if cls == "wood" and g.geom_type == "Polygon":
+                        found["wood"].append(g)
                 elif props.get("intermittent") not in (1, True):
                     found["waterway"].append((cls, g))
     return found, zoom
@@ -556,6 +585,49 @@ def pin_mesh(height, x, y, ground):
         mesh.invert()
     mesh.apply_translation((x, y, ground))
     return mesh
+
+
+def mine_mesh(status, size, x, y, ground):
+    """The marker for a mine of `status`, `size` mm tall at its tallest,
+    standing on `ground` at (x, y)."""
+    def ring(r, z, n, turn=0.0):
+        a = np.linspace(0, 2 * np.pi, n, endpoint=False) + turn
+        return np.column_stack([r * np.cos(a), r * np.sin(a), np.full(n, z)])
+    s, down = size, -PIN_STEM
+    if status == "producer":            # a headframe: a tower with a pointed top
+        r = 0.25 * s
+        pts = [ring(r, down, 4, np.pi / 4), ring(r, 0.7 * s, 4, np.pi / 4), [[0, 0, s]]]
+    elif status == "past":              # a spoil heap
+        r = 0.5 * s
+        pts = [ring(r, down, 4, np.pi / 4), ring(r, 0.0, 4, np.pi / 4), [[0, 0, 0.45 * s]]]
+    elif status == "developed":
+        pts = [ring(0.28 * s, down, 6), ring(0.28 * s, 0.5 * s, 6)]
+    elif status == "prospect":
+        pts = [ring(0.22 * s, down, 6), ring(0.22 * s, 0.35 * s, 6)]
+    else:                               # a showing
+        pts = [ring(0.18 * s, down, 12), ring(0.18 * s, 0.2 * s, 12)]
+    import manifold3d                   # its hull, rather than scipy for one
+    m = manifold3d.Manifold.hull_points(np.vstack(pts).astype(np.float64)).to_mesh()
+    mesh = trimesh.Trimesh(np.asarray(m.vert_properties)[:, :3], np.asarray(m.tri_verts),
+                           process=False)
+    mesh.apply_translation((x, y, ground))
+    return mesh
+
+
+def grid_polygons(grid, value, w, h):
+    """The cells of `grid` equal to `value` as polygons in model mm: the
+    grid spans the model, its top row the north edge.  Built a row of runs
+    at a time, so a forest is a few thousand boxes, not a million pixels."""
+    rows, cols = grid.shape
+    cw, ch = w / cols, h / rows
+    boxes = []
+    for i in range(rows):
+        row = np.concatenate([[False], grid[i] == value, [False]])
+        edges = np.flatnonzero(row[1:] != row[:-1])
+        y1 = h / 2 - i * ch
+        for a, b in zip(edges[::2], edges[1::2]):
+            boxes.append(box(-w / 2 + a * cw, y1 - ch, -w / 2 + b * cw, y1))
+    return unary_union(boxes) if boxes else None
 
 
 def solid_of(polys, z0, z1):
@@ -634,7 +706,8 @@ def area(centre, span, pins, w, h):
 
 def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXAGGERATE,
           base=BASE, depth=DEPTH, river=RIVER, streams=False, pin_h=PIN,
-          ocean=True, lakes=True, rivers=True, colours=solids.COLOURS, label=""):
+          ocean=True, lakes=True, rivers=True, mines="mines", mine_h=MINE, forest="two",
+          skin=SKIN, colours=solids.COLOURS, label=""):
     """One topographic map, as printable parts plus the numbers worth knowing.
 
     `pins` are place names or "lat, lon" strings; `centre` is one too, or
@@ -642,10 +715,20 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
     across, in km.  `size` is the model's width in mm; `shape` is "rect"
     (4 : 3), "square" or "round".  `exaggerate` stretches the relief;
     `depth` is how thick the water's colour is; `river` is the width a river
-    is drawn at in mm, whatever its real width.
+    is drawn at in mm, whatever its real width.  `mines` is which mine sites
+    get a marker ("off", or a key of layers.SHOW) and `mine_h` the tallest
+    marker's height; `forest` is how the forest is coloured ("off", "one"
+    shade, conifer and broadleaf as "two", or by "species" group) and `skin`
+    how thick that colour is.
     """
     if shape not in SHAPES:
         raise ValueError(f"no such map shape: {shape}")
+    if mines not in MINES:
+        raise ValueError(f"no such choice of mines: {mines}")
+    if forest not in layers.MODES:
+        raise ValueError(f"no such forest colouring: {forest}")
+    mine_h = min(max(float(mine_h), 1.5), 12.0)
+    skin = min(max(float(skin), 0.2), 3.0)
     size = min(max(float(size), 30.0), 400.0)
     exaggerate = min(max(float(exaggerate), 0.1), EXAGGERATE_MAX)
     depth = min(max(float(depth), 0.2), 5.0)
@@ -691,7 +774,7 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
     try:
         found, vzoom = water(u0, v0, u1, v1, zoom)
     except Exception as exc:                 # the map still comes out; say so
-        found, vzoom = {"ocean": [], "lake": [], "river": [], "waterway": []}, None
+        found, vzoom = {"ocean": [], "lake": [], "river": [], "waterway": [], "wood": []}, None
         water_note = f"no water data ({exc.__class__.__name__}); elevation only"
 
     def on_model(geoms):
@@ -777,14 +860,6 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
             land = solids.boolean("difference", [land, solids.boolean(
                 "difference", [prism, under])])
 
-    # --- the shape
-    if shape == "round":
-        disc = trimesh.creation.cylinder(radius=w / 2, height=top + 4, sections=192)
-        disc.apply_translation((0, 0, top / 2))
-        land = solids.boolean("intersection", [land, disc])
-        if wet_solid is not None:
-            wet_solid = solids.boolean("intersection", [wet_solid, disc])
-
     # --- the pins
     pin_solid = None
     marks = []
@@ -799,9 +874,121 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         marks.append(pin_mesh(pin_h, x, y, gz))
     if marks:
         pin_solid = solids.union(marks)
-        land = solids.boolean("difference", [land, pin_solid])
+
+    # --- the mines
+    sites, mine_sources, mine_note, mine_solid = [], [], None, None
+    if mines != "off":
+        nlat_, wlon_ = to_latlon(u0, v0)
+        slat_, elon_ = to_latlon(u1, v1)
+        try:
+            sites, mine_sources = layers.mines(fetch, slat_, wlon_, nlat_, elon_)
+        except Exception as exc:
+            mine_note = f"no mine data ({exc.__class__.__name__}); the map has none"
+        shown = layers.SHOW[mines]
+        heads, kept = [], []
+        inner = frame.buffer(-0.5 * mine_h)
+        # A mining district is hundreds of sites in a few km; markers that
+        # touch print as one lump.  So the biggest operations go first, and a
+        # site whose marker would touch one already placed is left off.
+        gap = 0.75 * mine_h
+        sites.sort(key=lambda m: layers.STATUSES.index(m["status"]))
+        for m in sites:
+            u, v = to_world(m["lat"], m["lon"])
+            x, y = to_mm(u, v)
+            m.update(x=round(x, 2), y=round(y, 2), on_map=False, crowded=False)
+            if m["status"] not in shown or not inner.contains(Point(x, y)):
+                continue
+            if any((x - a) ** 2 + (y - b) ** 2 < gap ** 2 for a, b in kept):
+                m["crowded"] = True
+                continue
+            m["on_map"] = True
+            kept.append((x, y))
+            gz = float(_sample(xs, ys, np.maximum(z_ground, z_surface), x, y))
+            heads.append(mine_mesh(m["status"], mine_h, x, y, gz))
+        if heads:
+            mine_solid = solids.union(heads)
+            if pin_solid is not None:     # a pin on a mine wins
+                mine_solid = solids.boolean("difference", [mine_solid, pin_solid])
+
+    # Out of the land and the water now, so the forest -- taken from the
+    # land next -- has their holes in it already.
+    stood = [m for m in (pin_solid, mine_solid) if m is not None and len(m.faces)]
+    if stood:
+        land = solids.boolean("difference", [land] + stood)
         if wet_solid is not None:
-            wet_solid = solids.boolean("difference", [wet_solid, pin_solid])
+            wet_solid = solids.boolean("difference", [wet_solid] + stood)
+
+
+    # --- the forest: the top `skin` of the land wherever it is wooded,
+    # one solid per shade.  In BC the province draws its inventory by
+    # species group; anywhere else it is OpenStreetMap's woodland.
+    woods, forest_note, forest_source, forest_share = {}, None, None, {}
+    if forest != "off":
+        nlat_, wlon_ = to_latlon(u0, v0)
+        slat_, elon_ = to_latlon(u1, v1)
+        classes = {}
+        if layers.in_bc(slat_, wlon_, nlat_, elon_):
+            px = min(FOREST_PX, nx)
+            try:
+                grid = layers.species_grid(fetch, (u0 - 0.5) * EARTH, (0.5 - v1) * EARTH,
+                                           (u1 - 0.5) * EARTH, (0.5 - v0) * EARTH,
+                                           px, max(1, round(px * h / w)))
+            except Exception as exc:
+                grid, forest_note = None, f"no species data ({exc}); woodland only"
+            if grid is not None:
+                forest_source = "BC Vegetation Resources Inventory"
+                for n, (key, _, _) in enumerate(layers.SPECIES, start=1):
+                    g = grid_polygons(grid, n, w, h)
+                    if g is not None:
+                        classes[key] = g
+        if not classes and found["wood"]:
+            g = on_model(found["wood"])
+            if g is not None and not g.is_empty:
+                forest_source = "OpenStreetMap woodland"
+                classes["forest"] = g
+        by_slot = {}
+        for key, g in classes.items():
+            slot = layers.slot_for(key, forest) if key != "forest" else "forest"
+            by_slot.setdefault(slot, []).append(g)
+        # inside the frame -- a hair inside, on a round map, so the disc cut
+        # from the land below does not leave a sliver of forest proud of it
+        edge = frame.buffer(-0.05) if shape == "round" else frame
+        dry = edge if water_2d.is_empty else edge.difference(water_2d.buffer(0.2))
+        lowered = None
+        for slot, gs in by_slot.items():
+            # close the pixel steps up a little and drop the specks
+            g = unary_union(gs).buffer(0.3, 4).buffer(-0.3, 4).simplify(0.15)
+            g = g.intersection(dry)
+            polys = [p for p in pieces(g) if p.area >= MIN_FOREST]
+            if not polys:
+                continue
+            prism = solid_of([p.buffer(0) for p in polys], -1.0, top)
+            if prism is None:
+                continue
+            if lowered is None:
+                # a cell wider all round than the land, so the two share no
+                # wall for the boolean to make slivers of
+                lowered = heightfield(np.concatenate([[xs[0] - 1], xs, [xs[-1] + 1]]),
+                                      np.concatenate([[ys[0] - 1], ys, [ys[-1] + 1]]),
+                                      np.pad(np.maximum(z_ground - skin, 0.3), 1, mode="edge"),
+                                      floor=-0.5)
+                shell = solids.boolean("difference", [land, lowered])
+            piece = solids.boolean("intersection", [prism, shell])
+            if len(piece.faces):
+                woods[slot] = piece
+                forest_share[slot] = round(sum(p.area for p in polys) / frame.area * 100, 1)
+        if woods:
+            land = solids.boolean("difference", [land] + list(woods.values()))
+        elif forest_note is None and forest_source is None:
+            forest_note = "no forest mapped here"
+
+    # --- the shape
+    if shape == "round":
+        disc = trimesh.creation.cylinder(radius=w / 2, height=top + 4, sections=192)
+        disc.apply_translation((0, 0, top / 2))
+        land = solids.boolean("intersection", [land, disc])
+        if wet_solid is not None:
+            wet_solid = solids.boolean("intersection", [wet_solid, disc])
 
     # A flat lake is a few thousand grid triangles that all say the same
     # thing; simplifying within a few hundredths of a mm keeps the shape and
@@ -809,12 +996,19 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
     land = simplify(land)
     wet_solid = simplify(wet_solid) if wet_solid is not None else None
     pin_solid = simplify(pin_solid) if pin_solid is not None else None
+    mine_solid = simplify(mine_solid) if mine_solid is not None else None
+    woods = {slot: simplify(m) for slot, m in woods.items()}
 
     groups = [dict(slot="body", element="land", face="body", mesh=land)]
     if wet_solid is not None and len(wet_solid.faces):
         groups.append(dict(slot="pattern", element="water", face="front", mesh=wet_solid))
     if pin_solid is not None:
         groups.append(dict(slot="primary", element="pins", face="front", mesh=pin_solid))
+    if mine_solid is not None and len(mine_solid.faces):
+        groups.append(dict(slot="secondary", element="mines", face="front", mesh=mine_solid))
+    for slot in solids.SLOTS:
+        if slot in woods and len(woods[slot].faces):
+            groups.append(dict(slot=slot, element="forest", face="front", mesh=woods[slot]))
     part = dict(name="", label=label or "topo map", card=0, groups=groups,
                 assembled=np.eye(4))
     part["slots"] = solids.slot_meshes(part)
@@ -848,7 +1042,15 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         water_note=water_note,
         pins=[dict(name=p["name"], query=p["query"], lat=round(p["lat"], 5),
                    lon=round(p["lon"], 5), on_map=p["on_map"]) for p in places],
-        pin_h=round(pin_h, 2), attribution=ATTRIBUTION,
+        pin_h=round(pin_h, 2), attribution=ATTRIBUTION + " " + layers.ATTRIBUTION,
+        mines=mines, mine_h=round(mine_h, 2), mine_sources=mine_sources, mine_note=mine_note,
+        mine_counts={st: sum(1 for m in sites if m["status"] == st) for st in layers.STATUSES},
+        mine_crowded=sum(1 for m in sites if m.get("crowded")),
+        mine_sites=[dict(name=m["name"], status=m["status"], lat=round(m["lat"], 5),
+                         lon=round(m["lon"], 5), commodities=m["commodities"])
+                    for m in sites if m.get("on_map")],
+        forest=forest, skin=round(skin, 2), forest_source=forest_source,
+        forest_note=forest_note, forest_share=forest_share,
         slots=[g["slot"] for g in groups], parts=["map"],
         part_slots={"map": [g["slot"] for g in groups]},
         tag_mode="none", joint=None, tag=[0, 0, 0], pause_z=None, lines={},
@@ -884,11 +1086,15 @@ if __name__ == "__main__":
     ap.add_argument("--shape", choices=SHAPES, default="rect")
     ap.add_argument("--exaggerate", type=float, default=EXAGGERATE)
     ap.add_argument("--streams", action="store_true")
+    ap.add_argument("--mines", choices=MINES, default="mines", help="which mine sites get a marker")
+    ap.add_argument("--forest", choices=layers.MODES, default="two",
+                    help="the forest in one green, conifer/broadleaf, or by species")
     ap.add_argument("--out", default="stl/topo.3mf", help=".3mf or .stl")
     a = ap.parse_args()
     t = time.time()
     parts, info = build(a.pins, centre=a.centre, span=a.span, size=a.size, shape=a.shape,
-                        exaggerate=a.exaggerate, streams=a.streams)
+                        exaggerate=a.exaggerate, streams=a.streams, mines=a.mines,
+                        forest=a.forest)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.suffix == ".stl":
@@ -899,4 +1105,5 @@ if __name__ == "__main__":
           f"(1:{info['scale']:,}), relief x{info['exaggerate']} = {info['relief']} mm, "
           f"{info['lakes']} lakes, {info['rivers']} rivers, ocean={info['ocean']}, "
           f"pins={[p['name'] for p in info['pins']]}, "
+          f"mines={len(info['mine_sites'])}, forest={info['forest_share']}, "
           f"watertight={info['watertight']}  ({time.time() - t:.1f}s)")
