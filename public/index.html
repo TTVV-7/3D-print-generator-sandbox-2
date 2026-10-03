@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topo maps</title>
+<style>
+  :root {
+    --bg-default: #ffffff; --bg-secondary: #f5f5f5; --bg-tertiary: #ececec;
+    --text-default: #1e1e1e; --text-secondary: #757575;
+    --border-default: #d9d9d9;
+    --brand: #2c2c2c; --brand-hover: #1e1e1e; --on-brand: #f5f5f5;
+    --neutral: #e3e3e3; --neutral-hover: #cdcdcd;
+    --warning: #522504; --warning-bg: #fff1c2;
+    --danger: #900b09; --danger-bg: #fee9e7;
+    --stage: #eef0f2;
+    --space-100: 4px; --space-200: 8px; --space-300: 12px; --space-400: 16px; --space-600: 24px;
+    --radius-100: 4px; --radius-200: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg-default: #1e1e1e; --bg-secondary: #2a2a2a; --bg-tertiary: #333;
+      --text-default: #f2f2f2; --text-secondary: #a6a6a6; --border-default: #444;
+      --brand: #f2f2f2; --brand-hover: #fff; --on-brand: #1e1e1e;
+      --neutral: #3a3a3a; --neutral-hover: #4a4a4a;
+      --warning: #ffd98a; --warning-bg: #3d2c08; --danger: #ffb4ab; --danger-bg: #4a1410;
+      --stage: #26292c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg-default: #1e1e1e; --bg-secondary: #2a2a2a; --bg-tertiary: #333;
+    --text-default: #f2f2f2; --text-secondary: #a6a6a6; --border-default: #444;
+    --brand: #f2f2f2; --brand-hover: #fff; --on-brand: #1e1e1e;
+    --neutral: #3a3a3a; --neutral-hover: #4a4a4a;
+    --warning: #ffd98a; --warning-bg: #3d2c08; --danger: #ffb4ab; --danger-bg: #4a1410;
+    --stage: #26292c;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; height: 100vh; display: flex; background: var(--bg-default); color: var(--text-default);
+    font: 16px/1.4 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  aside {
+    width: 400px; flex: none; padding: var(--space-600); overflow-y: auto;
+    border-right: 1px solid var(--border-default);
+    display: flex; flex-direction: column; gap: var(--space-600);
+  }
+  h1 { font-size: 24px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+  .sub { color: var(--text-secondary); margin: var(--space-100) 0 0; }
+  section {
+    border: 1px solid var(--border-default); border-radius: var(--radius-200);
+    padding: var(--space-600); display: flex; flex-direction: column; gap: var(--space-400);
+  }
+  h2 { font-size: 20px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+  .field { display: flex; flex-direction: column; gap: var(--space-200); }
+  input[type=text], select, textarea {
+    font: inherit; color: var(--text-default); background: var(--bg-default);
+    border: 1px solid var(--border-default); border-radius: var(--radius-200);
+    padding: var(--space-300) var(--space-400); min-height: 40px; width: 100%;
+  }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--brand); outline-offset: 1px;
+  }
+  textarea { resize: vertical; font-size: 14px; }
+  .hint { color: var(--text-secondary); font-size: 14px; margin: 0; }
+  .slider { display: flex; align-items: center; gap: var(--space-300); }
+  .slider input { flex: 1; accent-color: var(--brand); }
+  .slider output { min-width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-200); }
+  .check { display: flex; align-items: center; gap: var(--space-200); }
+  .check input { width: 16px; height: 16px; accent-color: var(--brand); }
+  .colours { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-300); }
+  .colours label { display: flex; flex-direction: column; gap: var(--space-100); font-size: 14px; }
+  .colours input[type=color] { width: 100%; height: 40px; border: 1px solid var(--border-default);
+                               border-radius: var(--radius-200); background: none; padding: 2px; }
+  .buttons { display: flex; gap: var(--space-300); }
+  button {
+    font: inherit; cursor: pointer; border-radius: var(--radius-200); padding: var(--space-300);
+    flex: 1; border: 1px solid var(--brand); background: var(--brand); color: var(--on-brand);
+  }
+  button:hover { background: var(--brand-hover); }
+  button.secondary { background: var(--neutral); color: var(--text-default); border-color: var(--neutral); }
+  button.secondary:hover { background: var(--neutral-hover); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  main { flex: 1; position: relative; min-width: 0; background: var(--stage); }
+  #view { position: absolute; inset: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #building {
+    position: absolute; top: var(--space-400); left: 50%; transform: translateX(-50%);
+    background: var(--bg-default); border: 1px solid var(--border-default); border-radius: var(--radius-200);
+    padding: var(--space-200) var(--space-400); font-size: 14px; text-align: center; max-width: 90%;
+  }
+  #error {
+    position: absolute; bottom: var(--space-400); left: var(--space-400); right: var(--space-400);
+    background: var(--danger-bg); color: var(--danger); border-radius: var(--radius-200);
+    padding: var(--space-300) var(--space-400); font-size: 14px;
+  }
+  #specs { display: grid; grid-template-columns: auto 1fr; gap: var(--space-100) var(--space-400); font-size: 14px; }
+  #specs dt { color: var(--text-secondary); }
+  #specs dd { margin: 0; font-variant-numeric: tabular-nums; }
+  #specs .warn { grid-column: 1 / -1; background: var(--warning-bg); color: var(--warning);
+                 border-radius: var(--radius-100); padding: var(--space-200); }
+  #specs .credit { grid-column: 1 / -1; color: var(--text-secondary); font-size: 12px; }
+  @media (max-width: 800px) {
+    body { flex-direction: column; height: auto; }
+    aside { width: 100%; border-right: 0; padding: var(--space-400); order: 2; }
+    main { height: 60vh; flex: none; order: 1; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <div>
+    <h1>Topo maps</h1>
+    <p class="sub">A piece of the real world in relief: the ground from satellite elevation data,
+      the sea, lakes and rivers from OpenStreetMap in a second colour, and a pin standing on each
+      place you name.</p>
+  </div>
+
+  <section>
+    <h2>Where</h2>
+    <label class="field"><span>Pins, one place per line</span>
+      <textarea id="topo_pins" rows="4" spellcheck="false"
+        placeholder="Squamish, BC&#10;Whistler&#10;49.7016, -123.1558">Squamish, BC
+Whistler, BC</textarea>
+    </label>
+    <p class="hint">A town, a peak, a lake, an address &mdash; anything OpenStreetMap can find
+      &mdash; or a latitude, longitude straight off a map app. Add the region if the name is common.
+      The map is looked up again when you click out of the box, not on every key.</p>
+    <label class="field"><span>Middle of the map</span>
+      <input type="text" id="topo_centre" autocomplete="off" placeholder="Empty: fit the map round the pins"></label>
+    <label class="field"><span>Across, in km</span>
+      <input type="text" id="topo_span" autocomplete="off" inputmode="decimal" placeholder="Empty: as much as the pins need"></label>
+    <p class="hint">Empty, the map is fitted round the pins with a margin. Name a place to centre it
+      there instead, and say how much ground it covers &mdash; a valley is 10&ndash;30 km, a city and
+      its coast 50, an island or a region a few hundred.</p>
+  </section>
+
+  <section>
+    <h2>The map</h2>
+    <label class="field"><span>Shape</span>
+      <select id="topo_shape">
+        <option value="rect">Rectangle, 4 : 3</option>
+        <option value="square">Square</option>
+        <option value="round">Round</option>
+      </select>
+    </label>
+    <div class="field"><span>Width</span>
+      <div class="slider"><input type="range" id="topo_size" min="60" max="250" step="5" value="150"><output id="topo_size_v">150 mm</output></div>
+    </div>
+    <div class="field"><span>Height stretch</span>
+      <div class="slider"><input type="range" id="topo_exag" min="0.5" max="10" step="0.5" value="1.5"><output id="topo_exag_v">&times;1.5</output></div>
+    </div>
+    <p class="hint">Real ground is flat at any size a printer makes: a 2,000 m mountain on a 20 km map,
+      150 mm wide, is 15 mm tall. So the heights are stretched; &times;1 is true to scale. The relief
+      never passes 60 mm, and the readout says when it was held back.</p>
+    <div class="field"><span>Base</span>
+      <div class="slider"><input type="range" id="topo_base" min="1.5" max="10" step="0.5" value="3"><output id="topo_base_v">3 mm</output></div>
+    </div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" id="topo_ocean" checked><span>Ocean</span></label>
+      <label class="check"><input type="checkbox" id="topo_lakes" checked><span>Lakes</span></label>
+      <label class="check"><input type="checkbox" id="topo_rivers" checked><span>Rivers</span></label>
+      <label class="check"><input type="checkbox" id="topo_streams"><span>Streams too</span></label>
+    </div>
+    <p class="hint">The sea sits flat at sea level and every lake flat at its own level; rivers follow
+      their valleys down. Streams are off by default: on a big map there are thousands.</p>
+    <div class="field"><span>River width</span>
+      <div class="slider"><input type="range" id="topo_river" min="0.4" max="3" step="0.1" value="1"><output id="topo_river_v">1 mm</output></div>
+    </div>
+    <div class="field"><span>Water depth</span>
+      <div class="slider"><input type="range" id="topo_depth" min="0.2" max="2" step="0.2" value="0.6"><output id="topo_depth_v">0.6 mm</output></div>
+    </div>
+    <div class="field"><span>Pin height</span>
+      <div class="slider"><input type="range" id="topo_pin_h" min="0" max="20" step="1" value="8"><output id="topo_pin_h_v">8 mm</output></div>
+    </div>
+    <p class="hint">Each pin is a map marker &mdash; a ball on a cone, point down &mdash; set into the
+      ground on a short stem. The cone prints without supports. 0 leaves the pins off.</p>
+  </section>
+
+  <section>
+    <h2>Colours</h2>
+    <div class="colours">
+      <label>Land<input type="color" id="c0" value="#f5f2ec"></label>
+      <label>Water<input type="color" id="c1" value="#5aa9e6"></label>
+      <label>Pins<input type="color" id="c2" value="#ff5b1f"></label>
+    </div>
+    <p class="hint">A pale land colour shows the relief best: the shadows do the work. Each is its own
+      solid, so the 3MF opens with each on its own filament and nothing to paint.</p>
+  </section>
+
+  <section>
+    <h2>This map</h2>
+    <dl id="specs"></dl>
+    <div class="buttons">
+      <button type="button" id="dl_3mf" disabled>Download 3MF</button>
+      <button type="button" class="secondary" id="dl_stl" disabled>STL</button>
+    </div>
+    <p class="hint">The STL is all three welded into one, for a single-colour printer; paint the water
+      afterwards &mdash; its pockets are the outline.</p>
+  </section>
+</aside>
+
+<main>
+  <div id="view"></div>
+  <div id="building" hidden>Building&hellip; A new place fetches its map first &mdash; up to half a
+    minute; changes after that are quicker.</div>
+  <div id="error" role="alert" hidden></div>
+</main>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const $ = id => document.getElementById(id);
+const SLIDERS = { topo_size: " mm", topo_exag: "", topo_base: " mm", topo_river: " mm",
+                  topo_depth: " mm", topo_pin_h: " mm" };
+const CHECKS = ["topo_ocean", "topo_lakes", "topo_rivers", "topo_streams"];
+const COLOUR_IDS = ["c0", "c1", "c2"];
+const CAN_INFLATE = "DecompressionStream" in window;
+
+/* ---- the viewer: z up, as the printer sees it ---- */
+const view = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(-1, 1.2, 1.4);        // low from the north-west, so the hills throw shade
+scene.add(sun);
+let mesh = null, framed = false;
+
+function stageColour() {
+  return getComputedStyle(document.documentElement).getPropertyValue("--stage").trim() || "#eef0f2";
+}
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",
+  () => { scene.background = new THREE.Color(stageColour()); });
+scene.background = new THREE.Color(stageColour());
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+/* A binary STL, each triangle coloured by the slot of the run it is in. */
+function show(buffer, runs) {
+  const dv = new DataView(buffer), n = dv.getUint32(80, true);
+  const pos = new Float32Array(n * 9), col = new Float32Array(n * 9);
+  const colours = COLOUR_IDS.map(id => new THREE.Color($(id).value));
+  colours.push(colours[2]);
+  let tri = 0;
+  for (const [slot, count] of runs) {
+    const c = colours[slot] || colours[0];
+    for (let k = 0; k < count && tri < n; k++, tri++) {
+      const at = 84 + tri * 50 + 12;
+      for (let v = 0; v < 9; v++) {
+        pos[tri * 9 + v] = dv.getFloat32(at + v * 4, true);
+        col[tri * 9 + v] = [c.r, c.g, c.b][v % 3];
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingBox();
+  const centre = geo.boundingBox.getCenter(new THREE.Vector3());
+  geo.translate(-centre.x, -centre.y, -geo.boundingBox.min.z);
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+  mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }));
+  mesh.userData.runs = runs;
+  scene.add(mesh);
+  if (!framed) {
+    // from the south and above, low enough for the hills to throw shadows
+    // far enough back that the whole width fits, whichever way the view is narrow
+    const size = geo.boundingBox.getSize(new THREE.Vector3());
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const d = 1.2 * Math.max(size.y / 2 / tan, size.x / 2 / (tan * camera.aspect)) + size.y / 2;
+    camera.position.set(0, -d * 0.75, d * 0.66);
+    controls.target.set(0, 0, size.z / 3);
+    framed = true;
+  }
+}
+
+function recolour() {
+  if (!mesh) return;
+  const colours = COLOUR_IDS.map(id => new THREE.Color($(id).value));
+  colours.push(colours[2]);
+  const col = mesh.geometry.getAttribute("color");
+  let tri = 0;
+  for (const [slot, count] of mesh.userData.runs) {
+    const c = colours[slot] || colours[0];
+    for (let k = 0; k < count; k++, tri++)
+      for (let v = 0; v < 3; v++) col.setXYZ(tri * 3 + v, c.r, c.g, c.b);
+  }
+  col.needsUpdate = true;
+}
+
+/* ---- the form ---- */
+function params(format) {
+  const p = { topo_pins: $("topo_pins").value, topo_centre: $("topo_centre").value,
+              topo_span: $("topo_span").value, topo_shape: $("topo_shape").value,
+              colours: COLOUR_IDS.map(id => $(id).value), format, gzip: CAN_INFLATE };
+  for (const id of Object.keys(SLIDERS)) p[id] = $(id).value;
+  for (const id of CHECKS) p[id] = $(id).checked;
+  return p;
+}
+
+async function post(p) {
+  const res = await fetch("/api/model", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) });
+  if (!res.ok) {
+    let msg = `the server said ${res.status}`;
+    try { msg = (await res.json()).error || msg; } catch (e) { /* not JSON */ }
+    throw new Error(msg);
+  }
+  const info = JSON.parse(res.headers.get("X-Model-Info") || "{}");
+  const body = res.headers.get("X-Compressed") === "gzip"
+    ? await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()
+    : await res.arrayBuffer();
+  return [body, info];
+}
+
+let seq = 0, info = null;
+async function rebuild() {
+  const mine = ++seq;
+  $("building").hidden = false;
+  try {
+    const [buffer, got] = await post(params("preview"));
+    if (mine !== seq) return;
+    info = got;
+    show(buffer, info.preview);
+    readout();
+    $("error").hidden = true;
+    $("dl_3mf").disabled = $("dl_stl").disabled = false;
+  } catch (e) {
+    if (mine !== seq) return;
+    $("error").textContent = e.message;
+    $("error").hidden = false;
+  } finally {
+    if (mine === seq) $("building").hidden = true;
+  }
+}
+let timer = 0;
+const queue = () => { clearTimeout(timer); timer = setTimeout(rebuild, 250); };
+
+const mm = v => (+v).toFixed(1).replace(/\.0$/, "");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const list = xs => xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
+function readout() {
+  const km = v => v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
+  const line = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  const water = [info.ocean ? "the sea" : "",
+                 info.lakes ? `${info.lakes} lake${info.lakes === 1 ? "" : "s"}` : "",
+                 info.rivers ? `${info.rivers} river${info.rivers === 1 ? "" : "s"}` : ""].filter(Boolean);
+  const off = info.pins.filter(p => !p.on_map);
+  $("specs").innerHTML = [
+    line("map", info.shape === "round" ? `a disc ${mm(info.w)} mm across` : `${mm(info.w)} &times; ${mm(info.h)} mm`),
+    line("covers", `${km(info.span_km)}${info.shape === "rect" ? ` &times; ${km(info.span_ns_km)}` : ""} km,
+                    1 : ${info.scale.toLocaleString()}`),
+    line("middle", `${info.centre[0].toFixed(4)}, ${info.centre[1].toFixed(4)}`),
+    line("ground", `${info.low_m.toLocaleString()} to ${info.high_m.toLocaleString()} m`),
+    line("relief", `${mm(info.relief)} mm at &times;${info.exaggerate} on a ${mm(info.base)} mm base`),
+    line("tallest", `${mm(info.total_z)} mm with the pins`),
+    line("water", water.length ? list(water) : "none here"),
+    info.pins.length ? line("pins", list(info.pins.map(p => p.on_map ? esc(p.name) : `<s>${esc(p.name)}</s>`))) : "",
+    line("grid", `${mm(info.cell)} mm`),
+    line("uses", `${info.volume.toFixed(1)} cm&sup3;`),
+    info.capped ? `<span class="warn">The stretch was held to &times;${info.exaggerate}: any more
+      and the relief would pass 60 mm.</span>` : "",
+    off.length ? `<span class="warn">${list(off.map(p => esc(p.name)))} ${off.length === 1 ? "is" : "are"}
+      off the map &mdash; make it bigger across, or clear the middle to fit the pins.</span>` : "",
+    info.water_note ? `<span class="warn">${esc(info.water_note)}</span>` : "",
+    info.too_big ? `<span class="warn">${mm(info.w)} mm is bigger than a ${info.bed} mm bed.</span>` : "",
+    `<span class="credit">${esc(info.attribution)}</span>`,
+  ].join("");
+}
+
+function stem() {
+  const first = ($("topo_centre").value || $("topo_pins").value.split("\n")[0] || "topo")
+    .split(",")[0].toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "place";
+  return `${first}_topo_map`;
+}
+async function download(format, button) {
+  button.disabled = true;
+  try {
+    const [buffer] = await post({ ...params(format), gzip: false });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buffer]));
+    a.download = `${stem()}.${format}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) {
+    $("error").textContent = e.message;
+    $("error").hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+for (const [id, unit] of Object.entries(SLIDERS)) {
+  $(id).addEventListener("input", () => {
+    const v = $(id).value;
+    $(`${id}_v`).innerHTML = id === "topo_exag" ? `&times;${v}`
+      : id === "topo_pin_h" && !+v ? "no pins" : `${v}${unit}`;
+  });
+  $(id).addEventListener("change", queue);
+}
+// Places rebuild when they are changed -- on leaving the box, or Enter in a
+// one-line one -- not on every key: half a place name is somewhere else.
+for (const id of ["topo_pins", "topo_centre", "topo_span", "topo_shape", ...CHECKS])
+  $(id).addEventListener("change", queue);
+for (const id of ["topo_centre", "topo_span"])
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") $(id).blur(); });
+for (const id of COLOUR_IDS) $(id).addEventListener("input", recolour);
+$("topo_shape").addEventListener("change", () => { framed = false; });
+$("dl_3mf").addEventListener("click", e => download("3mf", e.currentTarget));
+$("dl_stl").addEventListener("click", e => download("stl", e.currentTarget));
+resize();
+rebuild();
+</script>
+</body>
+</html>

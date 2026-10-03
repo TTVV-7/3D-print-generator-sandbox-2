@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+# maps written from the terminal
+stl/
+
+# a virtualenv for running the generator locally
+.venv/
+
+.env
