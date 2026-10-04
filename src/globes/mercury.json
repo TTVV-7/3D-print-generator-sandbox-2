@@ -1,0 +1,15 @@
+{
+ "name": "Mercury",
+ "credit": "MESSENGER, NASA / JHUAPL / CIW; DEM by USGS Astrogeology",
+ "source": "Mercury_Messenger_USGS_DEM_Global_665m_v2.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -5361.22,
+ "step": 1.0,
+ "high": 4267.34,
+ "a": 2439400.0,
+ "b": 2439400.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

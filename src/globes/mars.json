@@ -1,0 +1,15 @@
+{
+ "name": "Mars",
+ "credit": "MGS MOLA, NASA / GSFC; mosaic by USGS Astrogeology",
+ "source": "Mars_MGS_MOLA_DEM_mosaic_global_463m.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -8129.09,
+ "step": 1.0,
+ "high": 21134.03,
+ "a": 3396190.0,
+ "b": 3396190.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

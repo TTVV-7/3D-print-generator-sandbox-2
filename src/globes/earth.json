@@ -1,0 +1,15 @@
+{
+ "name": "Earth",
+ "credit": "AWS Terrain Tiles (SRTM, GMTED, ETOPO1 and others)",
+ "source": "AWS Terrain Tiles",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -10117.0,
+ "step": 1.0,
+ "high": 6434.0,
+ "a": 6371008.8,
+ "b": 6371008.8,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

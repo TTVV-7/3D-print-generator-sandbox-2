@@ -1,0 +1,15 @@
+{
+ "name": "Ceres",
+ "credit": "Dawn FC, NASA / JPL / DLR; DTM by DLR",
+ "source": "Ceres_Dawn_FC_HAMO_DTM_DLR_Global_60ppd_Oct2016.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -27897.27,
+ "step": 1.0,
+ "high": 16991.53,
+ "a": 470000.0,
+ "b": 470000.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

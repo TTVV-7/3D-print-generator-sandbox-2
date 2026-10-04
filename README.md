@@ -4,7 +4,9 @@ A piece of the real world in relief, ready to 3D print: the ground from
 satellite elevation data, the sea, lakes and rivers in blue, the forest in
 shades of green by its leading tree species, a marker on every mine, and a
 map pin standing on each place you name -- or a whole NHL team's season,
-every arena pinned and every flight raised across a continent.  Plain Python -- shapely for the
+every arena pinned and every flight raised across a continent.  Or a whole
+world as a globe you can hold: the Moon, Mars, Mercury, Venus, the Earth,
+Ceres, Vesta, Pluto or Charon.  Plain Python -- shapely for the
 2-D work, trimesh and manifold for the solids.
 
 Moved here from [TTVV-7/3D-print-sandbox](https://github.com/TTVV-7/3D-print-sandbox),
@@ -29,6 +31,54 @@ On Vercel, `public/index.html` is served as a static file and
 `api/model.py` answers `/api/model` with the same handler `src/app.py` runs
 locally.  A `GET /api/model` builds a small map and reports whether the
 geometry libraries and the tile fetches work where it is deployed.
+
+---
+
+# Globes
+
+*Globe of a world* at the top of the page makes the whole of one: its real
+surface, stretched until you can feel it, as two halves that peg together
+and sit on a stand.
+
+| World | Mapped by | Notes |
+|---|---|---|
+| The Moon | LRO's laser altimeter (LOLA) | the craters and the dark seas' smooth floors |
+| Mars | Mars Global Surveyor (MOLA) | Olympus Mons, Valles Marineris, Hellas |
+| Mercury | MESSENGER | |
+| Venus | Magellan's radar, through the clouds | Maxwell Montes |
+| Earth | the AWS Terrain Tiles | oceans flat at sea level, or drained to show the seabed |
+| Ceres, Vesta | Dawn | Vesta comes out the lumpy potato it is, true to scale |
+| Pluto, Charon | New Horizons | only one side was seen close up; the rest is left smooth, and the page says so |
+
+**The heights** are baked once into `src/globes/<world>.png` by
+`tools/bake_globes.py`: a 16-bit picture of the whole world at a quarter of a
+degree, about a megabyte each, with a `.json` saying what a grey level is in
+metres and the ellipsoid the heights are measured from.  The sources are the
+USGS Astrogeology mosaics on S3 -- the Moon's alone is 8.5 GB -- but they are
+uncompressed GeoTIFFs, so the baker reads only the rows it needs with range
+requests and averages each one down.  Nothing is fetched when a globe is
+built; one takes a couple of seconds.
+
+**The relief** is stretched, because worlds are smooth: the Moon's highest
+and lowest points are 20 km apart on a ball 3,475 km across, half a
+millimetre on a 100 mm globe.  By default the stretch makes the relief about
+a thirtieth of the diameter, but never flatter than true -- so the Moon is
+x6, Mars x8, Venus x30, and Vesta, whose relief is already a sixth of its
+size, x1.  The readout names the highest and lowest places where it knows
+them.
+
+**Printing it.**  The globe is cut at the equator.  Each half is a closed
+solid, printed cut face down: the dome needs no supports.  Three dowel holes
+go into both cut faces, spaced unevenly, so the halves only go together one
+way with the equator lined up; the three dowels print upright beside them.
+Push them into one half (a drop of glue if they are loose), press the other
+half on.  The stand is a low turned cone with a cup in its top for the globe
+to sit in.  A 100 mm globe is about 550 cm^3 solid -- print it at 10-15%
+infill.  The 3MF lays the parts out in a row; let the slicer arrange them
+on the bed.
+
+    python3 src/globe.py moon --diameter 120
+    python3 src/globe.py earth --drain --exaggerate 40
 
 ---
 

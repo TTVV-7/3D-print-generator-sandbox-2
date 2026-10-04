@@ -1,0 +1,15 @@
+{
+ "name": "Charon",
+ "credit": "New Horizons, NASA / JHUAPL / SwRI; DEM by USGS / LPI",
+ "source": "Charon_NewHorizons_Global_DEM_300m_Jul2017_16bit.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -14012.25,
+ "step": 1.0,
+ "high": 6840.0,
+ "a": 606000.0,
+ "b": 606000.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

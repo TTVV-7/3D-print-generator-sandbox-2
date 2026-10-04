@@ -1,0 +1,15 @@
+{
+ "name": "Vesta",
+ "credit": "Dawn FC, NASA / JPL / DLR; DTM by DLR",
+ "source": "Vesta_Dawn_HAMO_DTM_DLR_Global_48ppd.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -43045.5,
+ "step": 1.2453025641025643,
+ "high": 37899.17,
+ "a": 255000.0,
+ "b": 255000.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

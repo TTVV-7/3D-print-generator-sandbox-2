@@ -18,8 +18,10 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import numpy as np
 import trimesh
 
+import globe
 import nhl
 import solids
 import topo
@@ -36,6 +38,8 @@ GEOMETRY = ("topo_pins", "topo_centre", "topo_span", "topo_size", "topo_shape",
             "topo_ocean", "topo_lakes", "topo_rivers", "topo_streams",
             "topo_mines", "topo_mine_h", "topo_forest", "topo_skin",
             "topo_team", "topo_preseason", "topo_route_w")
+GLOBE = ("make", "globe_world", "globe_d", "globe_exag", "globe_fine", "globe_stand",
+         "globe_seas")
 RECENT = {}
 BUILD = threading.Lock()
 
@@ -60,15 +64,19 @@ def filaments(params, colours):
     return out
 
 
-def preview(parts):
+def preview(parts, assembled=False):
     """(bytes, runs): every slot of the map, one after another in a binary
     STL, and [slot index, triangles] for each, so the page can colour every
-    triangle by what it is."""
+    triangle by what it is.  `assembled` puts each part where it goes in the
+    finished thing -- a globe on its stand -- rather than on the plate."""
     meshes, runs = [], []
-    for part, shift in solids.layout(parts):
+    places = ([(p, np.asarray(p["assembled"])) for p in parts] if assembled else
+              [(p, trimesh.transformations.translation_matrix(shift))
+               for p, shift in solids.layout(parts)])
+    for part, move in places:
         for g in part["groups"]:
             mesh = g["mesh"].copy()
-            mesh.apply_translation(shift)
+            mesh.apply_transform(move)
             meshes.append(mesh)
             runs.append([solids.SLOTS.index(g["slot"]), int(len(mesh.faces))])
     mesh = trimesh.util.concatenate(meshes) if len(meshes) > 1 else meshes[0]
@@ -87,8 +95,20 @@ def model(params):
             return default
 
     flag = lambda k, d: bool(params.get(k, d))         # noqa: E731
-    key = json.dumps({k: params.get(k) for k in GEOMETRY}, sort_keys=True)
+    if params.get("make") == "globe":
+        # A whole world: nothing is fetched, the heights are baked into data/
+        keyed = {k: params.get(k) for k in GLOBE}
+        key = json.dumps(keyed, sort_keys=True)
+    else:
+        key = json.dumps({k: params.get(k) for k in GEOMETRY}, sort_keys=True)
     with BUILD:
+        if key not in RECENT and params.get("make") == "globe":
+            RECENT[key] = globe.build(
+                params.get("globe_world") or "moon", diameter=num("globe_d", globe.DIAMETER),
+                exaggerate=num("globe_exag", 0.0) or None, fine=flag("globe_fine", False),
+                stand=flag("globe_stand", True), dowels=True, seas=flag("globe_seas", True))
+            while len(RECENT) > 8:
+                del RECENT[next(iter(RECENT))]
         if key not in RECENT:
             # Places are looked up by name, so a typo is an error that says
             # which line, not a map of somewhere else.
@@ -139,7 +159,7 @@ def model(params):
                 info, "model/3mf")
     if params.get("format") == "stl":
         return solids.plate(parts).export(file_type="stl"), info, "model/stl"
-    data, runs = preview(parts)
+    data, runs = preview(parts, assembled=info.get("kind") == "globe")
     return data, {**info, "preview": runs}, "model/stl"
 
 
@@ -212,7 +232,8 @@ class Handler(BaseHTTPRequestHandler):
             if params.get("gzip"):
                 data = gzip.compress(data, compresslevel=6)
                 headers.append(("X-Compressed", "gzip"))
-        print(f"  topo {info['w']:5.1f} x {info['h']:5.1f} mm  {info['span_km']:6.1f} km  "
+        print(f"  {info['kind']:5s} {info['w']:5.1f} x {info['h']:5.1f} mm  "
+              f"{info.get('span_km', 0):6.1f} km  "
               f"{params.get('format') or 'preview':7s} {len(data) / 1024:6.0f} kB")
         self._send(200, data, ctype, headers)
 

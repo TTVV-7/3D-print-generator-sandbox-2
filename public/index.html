@@ -96,6 +96,10 @@
     background: var(--danger-bg); color: var(--danger); border-radius: var(--radius-200);
     padding: var(--space-300) var(--space-400); font-size: 14px;
   }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px;
+           border: 1px solid var(--border-default); border-radius: var(--radius-200); }
+  .modes button { background: none; border: 0; color: var(--text-default); padding: var(--space-200); }
+  .modes button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
   .tabs { position: absolute; top: var(--space-400); right: var(--space-400); z-index: 3; display: flex;
           background: var(--bg-default); border: 1px solid var(--border-default); border-radius: var(--radius-200);
           padding: 2px; gap: 2px; }
@@ -132,10 +136,53 @@
     <h1>Topo maps</h1>
     <p class="sub">A piece of the real world in relief: the ground from satellite elevation data,
       the sea, lakes and rivers in blue, the forest in greens by tree species, a marker on every
-      mine, and a pin standing on each place you name.</p>
+      mine, and a pin standing on each place you name &mdash; or a whole world as a globe.</p>
   </div>
 
-  <section>
+  <div class="modes" role="group" aria-label="What to make">
+    <button type="button" data-make="map" aria-pressed="true">Map of a place</button>
+    <button type="button" data-make="globe" aria-pressed="false">Globe of a world</button>
+  </div>
+
+  <section data-mode="globe" hidden>
+    <h2>The globe</h2>
+    <label class="field"><span>World</span>
+      <select id="globe_world">
+        <option value="moon" selected>The Moon</option>
+        <option value="mars">Mars</option>
+        <option value="mercury">Mercury</option>
+        <option value="venus">Venus</option>
+        <option value="earth">Earth</option>
+        <option value="ceres">Ceres</option>
+        <option value="vesta">Vesta</option>
+        <option value="pluto">Pluto</option>
+        <option value="charon">Charon</option>
+      </select>
+    </label>
+    <p class="hint">The real surface, from the spacecraft that mapped it: LRO for the Moon, Mars Global
+      Surveyor, MESSENGER for Mercury, Magellan's radar through Venus's clouds, Dawn for Ceres and Vesta,
+      New Horizons for Pluto and Charon. Vesta and Ceres come out the squashed shapes they are.</p>
+    <div class="field"><span>Diameter</span>
+      <div class="slider"><input type="range" id="globe_d" min="50" max="200" step="5" value="100"><output id="globe_d_v">100 mm</output></div>
+    </div>
+    <div class="field"><span>Relief stretch</span>
+      <div class="slider"><input type="range" id="globe_exag" min="0" max="100" step="1" value="50"><output id="globe_exag_v">auto</output></div>
+    </div>
+    <p class="hint">Worlds are smooth: the Moon's highest and lowest points are 20 km apart on a ball
+      3,475 km across, which on a 100 mm globe is half a millimetre. So the heights are stretched &mdash;
+      by default until the relief is about a thirtieth of the diameter, and never flatter than true.
+      Move the slider to choose; pick another world to go back to auto.</p>
+    <label class="check" id="globe_seas_row" hidden><input type="checkbox" id="globe_seas" checked><span>Oceans flat at sea level</span></label>
+    <p class="hint" id="globe_seas_hint" hidden>Untick to drain the oceans: the seabed in relief, the
+      mid-ocean ridges and the trenches.</p>
+    <label class="check"><input type="checkbox" id="globe_fine"><span>Fine detail</span></label>
+    <label class="check"><input type="checkbox" id="globe_stand" checked><span>A stand</span></label>
+    <p class="hint">It prints as two halves, each cut face down with no supports, and three dowels;
+      the dowel holes are spaced unevenly so the halves only go together one way, lined up across
+      the equator.</p>
+  </section>
+
+  <section data-mode="map">
     <h2>Where</h2>
     <label class="field"><span>Pins, one place per line</span>
       <textarea id="topo_pins" rows="4" spellcheck="false"
@@ -154,7 +201,7 @@ Whistler, BC</textarea>
       its coast 50, an island or a region a few hundred.</p>
   </section>
 
-  <section>
+  <section data-mode="map">
     <h2>Hockey season</h2>
     <label class="field"><span>NHL team</span>
       <select id="topo_team">
@@ -203,7 +250,7 @@ Whistler, BC</textarea>
     </div>
   </section>
 
-  <section>
+  <section data-mode="map">
     <h2>The map</h2>
     <label class="field"><span>Shape</span>
       <select id="topo_shape">
@@ -246,7 +293,7 @@ Whistler, BC</textarea>
       ground on a short stem. The cone prints without supports. 0 leaves the pins off.</p>
   </section>
 
-  <section>
+  <section data-mode="map">
     <h2>Mines</h2>
     <label class="field"><span>Show</span>
       <select id="topo_mines">
@@ -266,7 +313,7 @@ Whistler, BC</textarea>
     </div>
   </section>
 
-  <section>
+  <section data-mode="map">
     <h2>Forests</h2>
     <label class="field"><span>Colour the forest</span>
       <select id="topo_forest">
@@ -309,7 +356,7 @@ Whistler, BC</textarea>
   </section>
 
   <section>
-    <h2>This map</h2>
+    <h2 id="this_h">This map</h2>
     <dl id="specs"></dl>
     <div class="buttons">
       <button type="button" id="dl_3mf" disabled>Download 3MF</button>
@@ -346,6 +393,7 @@ Whistler, BC</textarea>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 
 const $ = id => document.getElementById(id);
 const SLIDERS = { topo_size: " mm", topo_exag: "", topo_base: " mm", topo_river: " mm",
@@ -421,7 +469,11 @@ function show(buffer, runs) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
-  geo.computeVertexNormals();
+  // Smooth across gentle bends, sharp at real edges (a map's walls): a
+  // stretched relief shaded triangle by triangle looks like a field of
+  // little diamonds that the print does not have.
+  const smooth = toCreasedNormals(geo, Math.PI / 6);
+  geo.setAttribute("normal", smooth.getAttribute("normal"));
   geo.computeBoundingBox();
   const centre = geo.boundingBox.getCenter(new THREE.Vector3());
   geo.translate(-centre.x, -centre.y, -geo.boundingBox.min.z);
@@ -434,9 +486,17 @@ function show(buffer, runs) {
     // far enough back that the whole width fits, whichever way the view is narrow
     const size = geo.boundingBox.getSize(new THREE.Vector3());
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const d = 1.2 * Math.max(size.y / 2 / tan, size.x / 2 / (tan * camera.aspect)) + size.y / 2;
-    camera.position.set(0, -d * 0.75, d * 0.66);
-    controls.target.set(0, 0, size.z / 3);
+    if (info && info.kind === "globe") {
+      // a tall thing: fit its bounding sphere, and look at its middle
+      const r = size.length() / 2;
+      const d = 1.15 * r / Math.min(tan, tan * camera.aspect);
+      camera.position.set(0, -d * 0.86, size.z / 2 + d * 0.5);
+      controls.target.set(0, 0, size.z / 2);
+    } else {
+      const d = 1.2 * Math.max(size.y / 2 / tan, size.x / 2 / (tan * camera.aspect)) + size.y / 2;
+      camera.position.set(0, -d * 0.75, d * 0.66);
+      controls.target.set(0, 0, size.z / 3);
+    }
     framed = true;
   }
 }
@@ -463,6 +523,12 @@ function params(format) {
               colours: COLOUR_IDS.map(id => $(id).value), format, gzip: CAN_INFLATE };
   for (const id of Object.keys(SLIDERS)) p[id] = $(id).value;
   p.topo_exag = exagOf(+$("topo_exag").value);
+  p.make = make;
+  if (make === "globe")
+    Object.assign(p, { globe_world: $("globe_world").value, globe_d: +$("globe_d").value,
+                       globe_exag: globeAuto ? 0 : exagOf(+$("globe_exag").value),
+                       globe_fine: $("globe_fine").checked, globe_stand: $("globe_stand").checked,
+                       globe_seas: $("globe_seas").checked });
   for (const id of CHECKS) p[id] = $(id).checked;
   return p;
 }
@@ -514,6 +580,7 @@ const mm = v => (+v).toFixed(1).replace(/\.0$/, "");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const list = xs => xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
 function readout() {
+  if (info.kind === "globe") return globeReadout();
   const km = v => v >= 100 ? Math.round(v) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
   const line = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const water = [info.ocean ? "the sea" : "",
@@ -543,6 +610,37 @@ function readout() {
     info.mine_note ? `<span class="warn">${esc(info.mine_note)}</span>` : "",
     info.forest_note ? `<span class="warn">${esc(info.forest_note)}</span>` : "",
     info.too_big ? `<span class="warn">${mm(info.w)} mm is bigger than a ${info.bed} mm bed.</span>` : "",
+    `<span class="credit">${esc(info.attribution)}</span>`,
+  ].join("");
+}
+
+/* A globe: the world, the size, how much the heights are stretched, and
+   the top and the bottom of it. */
+const HIGH_LOW = {
+  mars: ["Olympus Mons", "Hellas Planitia"], earth: ["Mount Everest", "the Challenger Deep"],
+  moon: ["the Selenean summit", "Antoniadi crater, in the South Pole-Aitken basin"],
+  venus: ["Maxwell Montes", ""],
+};
+function globeReadout() {
+  const line = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  const deg = ([la, lo]) => `${Math.abs(la)}&deg;${la >= 0 ? "N" : "S"} ${Math.abs(lo)}&deg;${lo >= 0 ? "E" : "W"}`;
+  const [hiName, loName] = HIGH_LOW[info.world] || ["", ""];
+  const seasOn = info.world === "earth" && info.seas;
+  $("specs").innerHTML = [
+    line("world", `${esc(info.name)}, ${Math.round(2 * info.radius_km).toLocaleString()} km across`),
+    line("globe", `${mm(info.diameter)} mm across, 1 : ${info.scale.toLocaleString()}`),
+    line("relief", `${mm(info.relief)} mm at &times;${info.exaggerate}${info.exaggerate === info.auto_exaggerate ? " (auto)" : ""}
+      &mdash; ${info.true_relief < 0.1 ? info.true_relief.toFixed(2) : mm(info.true_relief)} mm true to scale`),
+    line("highest", `${info.high.m.toLocaleString()} m, ${deg(info.high.at)}${hiName ? ` &mdash; ${hiName}` : ""}`),
+    seasOn ? "" : line("lowest", `${info.low.m.toLocaleString()} m, ${deg(info.low.at)}${loName ? ` &mdash; ${loName}` : ""}`),
+    line("parts", `two halves${info.stand ? ", a stand" : ""} and ${info.dowels} dowels, ${info.dowel_d} &times; ${info.dowel_len} mm`),
+    line("grid", `${info.grid[0]} &times; ${info.grid[1]}; heights are averaged over a quarter of a degree, so a
+      peak reads lower than its summit`),
+    line("uses", `${info.volume.toFixed(0)} cm&sup3; &mdash; about ${Math.round(info.volume * 1.24)} g of PLA solid; far less at 15% infill`),
+    info.unmapped > 0.05 ? `<span class="warn">${Math.round(info.unmapped * 100)}% of ${esc(info.name)} was never
+      mapped close up &mdash; the spacecraft flew past and saw one side &mdash; so that part of the globe is
+      left smooth.</span>` : "",
+    info.too_big ? `<span class="warn">${mm(info.diameter)} mm is bigger than a ${info.bed} mm bed.</span>` : "",
     `<span class="credit">${esc(info.attribution)}</span>`,
   ].join("");
 }
@@ -605,6 +703,7 @@ function spoolCount() {
 }
 
 function stem() {
+  if (make === "globe") return `${$("globe_world").value}_globe_${$("globe_d").value}mm`;
   if ($("topo_team").value) return `${$("topo_team").value.toLowerCase()}_season_map`;
   const first = ($("topo_centre").value || $("topo_pins").value.split("\n")[0] || "topo")
     .split(",")[0].toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "place";
@@ -644,6 +743,48 @@ for (const id of ["topo_centre", "topo_span"])
   $(id).addEventListener("keydown", e => { if (e.key === "Enter") $(id).blur(); });
 for (const id of COLOUR_IDS) $(id).addEventListener("input", () => { recolour(); spoolCount(); });
 $("topo_shape").addEventListener("change", () => { framed = false; });
+/* ---- map or globe ---- */
+let make = "map", globeAuto = true;
+const WORLD_COLOURS = { moon: "#b9b6b0", mars: "#c1532a", mercury: "#9b958d", venus: "#e2bf86",
+                        earth: "#f5f2ec", ceres: "#8f8b85", vesta: "#a9a197", pluto: "#dcc4a3",
+                        charon: "#aaa59e" };
+const coloursFor = { map: null, globe: null };
+const LABELS = { map: { 0: "Land", 3: "Mines" }, globe: { 0: "Globe", 3: "Stand, dowels" } };
+function setMake(next) {
+  if (next === make) return;
+  coloursFor[make] = COLOUR_IDS.map(id => $(id).value);
+  make = next;
+  for (const b of document.querySelectorAll(".modes button")) b.setAttribute("aria-pressed", b.dataset.make === make);
+  for (const sec of document.querySelectorAll("section[data-mode]")) sec.hidden = sec.dataset.mode !== make;
+  document.querySelector(".tabs").hidden = make === "globe";
+  if (make === "globe") showView("model");
+  for (const [slot, text] of Object.entries(LABELS[make]))
+    document.querySelector(`[data-slot="${slot}"]`).firstChild.textContent = text;
+  if (coloursFor[make]) COLOUR_IDS.forEach((id, i) => { $(id).value = coloursFor[make][i]; });
+  else if (make === "globe") { $("c0").value = WORLD_COLOURS[$("globe_world").value]; $("c3").value = "#2b2b2b"; }
+  $("this_h").textContent = make === "globe" ? "This globe" : "This map";
+  framed = false;
+  rebuild();
+}
+for (const b of document.querySelectorAll(".modes button")) b.addEventListener("click", () => setMake(b.dataset.make));
+$("globe_world").addEventListener("change", () => {
+  const w = $("globe_world").value;
+  globeAuto = true;
+  $("globe_exag_v").textContent = "auto";
+  $("c0").value = WORLD_COLOURS[w];
+  $("globe_seas_row").hidden = $("globe_seas_hint").hidden = w !== "earth";
+  framed = false;
+  queue();
+});
+$("globe_d").addEventListener("input", () => { $("globe_d_v").textContent = `${$("globe_d").value} mm`; });
+$("globe_exag").addEventListener("input", () => {
+  globeAuto = false;
+  $("globe_exag_v").innerHTML = `&times;${exagOf(+$("globe_exag").value)}`;
+});
+for (const id of ["globe_d", "globe_exag", "globe_fine", "globe_stand", "globe_seas"])
+  $(id).addEventListener("change", queue);
+$("globe_d").addEventListener("change", () => { framed = false; });
+
 /* Choosing a team turns the map into its season: the places become its
    arenas, the ground a continent -- stretched far more, the mines and the
    forest off (at that scale they are noise and a slow build).  Choosing None

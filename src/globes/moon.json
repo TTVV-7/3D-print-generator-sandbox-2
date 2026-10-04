@@ -1,0 +1,15 @@
+{
+ "name": "the Moon",
+ "credit": "LRO LOLA, NASA / GSFC; mosaic by USGS Astrogeology",
+ "source": "Lunar_LRO_LOLA_Global_LDEM_118m_Mar2014.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -9037.34,
+ "step": 1.0,
+ "high": 10564.65,
+ "a": 1737400.0,
+ "b": 1737400.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}

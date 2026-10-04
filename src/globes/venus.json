@@ -1,0 +1,15 @@
+{
+ "name": "Venus",
+ "credit": "Magellan altimetry, NASA / JPL; mosaic by USGS Astrogeology",
+ "source": "Venus_Magellan_Topography_Global_4641m_v02.tif",
+ "cols": 1440,
+ "rows": 720,
+ "west": -180.0,
+ "north": 90.0,
+ "low": -2786.33,
+ "step": 1.0,
+ "high": 11142.0,
+ "a": 6051000.0,
+ "b": 6051000.0,
+ "note": "Heights in metres above the reference ellipsoid (a, b), grid cell centres from 90N to 90S and 180W eastward."
+}
