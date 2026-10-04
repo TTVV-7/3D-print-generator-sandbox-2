@@ -1,0 +1,340 @@
+{
+ "_about": "NHL arenas and the other rinks on the 2026-27 schedule, located once on OpenStreetMap's Nominatim. A venue not here is looked up when a map needs it.",
+ "teams": {
+  "ANA": {
+   "name": "Anaheim Ducks",
+   "arena": "Honda Center"
+  },
+  "BOS": {
+   "name": "Boston Bruins",
+   "arena": "TD Garden"
+  },
+  "BUF": {
+   "name": "Buffalo Sabres",
+   "arena": "KeyBank Center"
+  },
+  "CAR": {
+   "name": "Carolina Hurricanes",
+   "arena": "Lenovo Center"
+  },
+  "CBJ": {
+   "name": "Columbus Blue Jackets",
+   "arena": "Nationwide Arena"
+  },
+  "CGY": {
+   "name": "Calgary Flames",
+   "arena": "Scotiabank Saddledome"
+  },
+  "CHI": {
+   "name": "Chicago Blackhawks",
+   "arena": "United Center"
+  },
+  "COL": {
+   "name": "Colorado Avalanche",
+   "arena": "Ball Arena"
+  },
+  "DAL": {
+   "name": "Dallas Stars",
+   "arena": "American Airlines Center"
+  },
+  "DET": {
+   "name": "Detroit Red Wings",
+   "arena": "Little Caesars Arena"
+  },
+  "EDM": {
+   "name": "Edmonton Oilers",
+   "arena": "Rogers Place"
+  },
+  "FLA": {
+   "name": "Florida Panthers",
+   "arena": "Amerant Bank Arena"
+  },
+  "LAK": {
+   "name": "Los Angeles Kings",
+   "arena": "Crypto.com Arena"
+  },
+  "MIN": {
+   "name": "Minnesota Wild",
+   "arena": "Grand Casino Arena"
+  },
+  "MTL": {
+   "name": "Montréal Canadiens",
+   "arena": "Centre Bell"
+  },
+  "NJD": {
+   "name": "New Jersey Devils",
+   "arena": "Prudential Center"
+  },
+  "NSH": {
+   "name": "Nashville Predators",
+   "arena": "Bridgestone Arena"
+  },
+  "NYI": {
+   "name": "New York Islanders",
+   "arena": "UBS Arena"
+  },
+  "NYR": {
+   "name": "New York Rangers",
+   "arena": "Madison Square Garden"
+  },
+  "OTT": {
+   "name": "Ottawa Senators",
+   "arena": "Canadian Tire Centre"
+  },
+  "PHI": {
+   "name": "Philadelphia Flyers",
+   "arena": "Xfinity Mobile Arena"
+  },
+  "PIT": {
+   "name": "Pittsburgh Penguins",
+   "arena": "PPG Paints Arena"
+  },
+  "SEA": {
+   "name": "Seattle Kraken",
+   "arena": "Climate Pledge Arena"
+  },
+  "SJS": {
+   "name": "San Jose Sharks",
+   "arena": "SAP Center at San Jose"
+  },
+  "STL": {
+   "name": "St. Louis Blues",
+   "arena": "Enterprise Center"
+  },
+  "TBL": {
+   "name": "Tampa Bay Lightning",
+   "arena": "Benchmark International Arena"
+  },
+  "TOR": {
+   "name": "Toronto Maple Leafs",
+   "arena": "Scotiabank Arena"
+  },
+  "UTA": {
+   "name": "Utah Mammoth",
+   "arena": "Delta Center"
+  },
+  "VAN": {
+   "name": "Vancouver Canucks",
+   "arena": "Rogers Arena"
+  },
+  "VGK": {
+   "name": "Vegas Golden Knights",
+   "arena": "T-Mobile Arena"
+  },
+  "WPG": {
+   "name": "Winnipeg Jets",
+   "arena": "Canada Life Centre"
+  },
+  "WSH": {
+   "name": "Washington Capitals",
+   "arena": "Capital One Arena"
+  }
+ },
+ "venues": {
+  "AT&T Stadium": {
+   "lat": 32.74785,
+   "lon": -97.09283,
+   "city": "Arlington, Texas"
+  },
+  "Amerant Bank Arena": {
+   "lat": 26.15837,
+   "lon": -80.32543,
+   "city": "Sunrise"
+  },
+  "American Airlines Center": {
+   "lat": 32.79049,
+   "lon": -96.81028,
+   "city": "Dallas"
+  },
+  "Ball Arena": {
+   "lat": 39.74868,
+   "lon": -105.00754,
+   "city": "Denver"
+  },
+  "Benchmark International Arena": {
+   "lat": 27.9427,
+   "lon": -82.45189,
+   "city": "Tampa"
+  },
+  "Bridgestone Arena": {
+   "lat": 36.15898,
+   "lon": -86.77838,
+   "city": "Nashville"
+  },
+  "Canada Life Centre": {
+   "lat": 49.89259,
+   "lon": -97.14374,
+   "city": "Winnipeg"
+  },
+  "Canadian Tire Centre": {
+   "lat": 45.29691,
+   "lon": -75.9269,
+   "city": "Ottawa"
+  },
+  "Capital One Arena": {
+   "lat": 38.89819,
+   "lon": -77.02094,
+   "city": "Washington"
+  },
+  "Centre Bell": {
+   "lat": 45.49604,
+   "lon": -73.5692,
+   "city": "Montréal"
+  },
+  "Climate Pledge Arena": {
+   "lat": 47.6219,
+   "lon": -122.35399,
+   "city": "Seattle"
+  },
+  "Colisée Vidéotron": {
+   "lat": 46.32132,
+   "lon": -72.59131,
+   "city": "Trois-Rivières"
+  },
+  "Crypto.com Arena": {
+   "lat": 34.043,
+   "lon": -118.26714,
+   "city": "Los Angeles"
+  },
+  "Delta Center": {
+   "lat": 40.76833,
+   "lon": -111.90106,
+   "city": "Salt Lake City"
+  },
+  "Enterprise Center": {
+   "lat": 38.6268,
+   "lon": -90.20262,
+   "city": "St. Louis"
+  },
+  "First Horizon Coliseum": {
+   "lat": 36.05908,
+   "lon": -79.82575,
+   "city": "Greensboro"
+  },
+  "GIANT Center": {
+   "lat": 40.28634,
+   "lon": -76.66902,
+   "city": "Hershey"
+  },
+  "Grand Casino Arena": {
+   "lat": 44.94473,
+   "lon": -93.1011,
+   "city": "Saint Paul"
+  },
+  "Honda Center": {
+   "lat": 33.80783,
+   "lon": -117.87653,
+   "city": "Anaheim"
+  },
+  "KeyBank Center": {
+   "lat": 42.87515,
+   "lon": -78.87664,
+   "city": "Buffalo"
+  },
+  "Lenovo Center": {
+   "lat": 35.8034,
+   "lon": -78.72192,
+   "city": "Raleigh"
+  },
+  "Little Caesars Arena": {
+   "lat": 42.34098,
+   "lon": -83.05495,
+   "city": "Detroit"
+  },
+  "Madison Square Garden": {
+   "lat": 40.75051,
+   "lon": -73.99352,
+   "city": "New York"
+  },
+  "Nationwide Arena": {
+   "lat": 39.96919,
+   "lon": -83.00608,
+   "city": "Columbus"
+  },
+  "PPG Paints Arena": {
+   "lat": 40.43959,
+   "lon": -79.98954,
+   "city": "Pittsburgh"
+  },
+  "PSD Bank Dome": {
+   "lat": 51.2729,
+   "lon": 6.81244,
+   "city": "Düsseldorf"
+  },
+  "Princess Auto Stadium": {
+   "lat": 49.80776,
+   "lon": -97.14292,
+   "city": "Winnipeg"
+  },
+  "Prudential Center": {
+   "lat": 40.73343,
+   "lon": -74.17115,
+   "city": "Newark"
+  },
+  "Rice-Eccles Stadium": {
+   "lat": 40.75982,
+   "lon": -111.84891,
+   "city": "Salt Lake City"
+  },
+  "Rogers Arena": {
+   "lat": 49.27791,
+   "lon": -123.10894,
+   "city": "Vancouver"
+  },
+  "Rogers Place": {
+   "lat": 53.54679,
+   "lon": -113.49779,
+   "city": "Edmonton"
+  },
+  "SAP Center at San Jose": {
+   "lat": 37.33286,
+   "lon": -121.90122,
+   "city": "San Jose"
+  },
+  "Scotiabank Arena": {
+   "lat": 43.64343,
+   "lon": -79.37908,
+   "city": "Toronto"
+  },
+  "Scotiabank Saddledome": {
+   "lat": 51.03741,
+   "lon": -114.05196,
+   "city": "Calgary"
+  },
+  "T-Mobile Arena": {
+   "lat": 36.10268,
+   "lon": -115.17822,
+   "city": "Las Vegas"
+  },
+  "TD Garden": {
+   "lat": 42.3663,
+   "lon": -71.06216,
+   "city": "Boston"
+  },
+  "Toyota Arena": {
+   "lat": 34.07302,
+   "lon": -117.56632,
+   "city": "Ontario, California"
+  },
+  "UBS Arena": {
+   "lat": 40.71169,
+   "lon": -73.72592,
+   "city": "Elmont"
+  },
+  "United Center": {
+   "lat": 41.88068,
+   "lon": -87.67419,
+   "city": "Chicago"
+  },
+  "Veikkaus Arena": {
+   "lat": 60.20548,
+   "lon": 24.92915,
+   "city": "Helsinki"
+  },
+  "Xfinity Mobile Arena": {
+   "lat": 39.9011,
+   "lon": -75.17202,
+   "city": "Philadelphia"
+  }
+ }
+}

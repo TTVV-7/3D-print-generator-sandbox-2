@@ -96,6 +96,21 @@
     background: var(--danger-bg); color: var(--danger); border-radius: var(--radius-200);
     padding: var(--space-300) var(--space-400); font-size: 14px;
   }
+  .tabs { position: absolute; top: var(--space-400); right: var(--space-400); z-index: 3; display: flex;
+          background: var(--bg-default); border: 1px solid var(--border-default); border-radius: var(--radius-200);
+          padding: 2px; gap: 2px; }
+  .tabs button { flex: none; padding: var(--space-100) var(--space-400); background: none; border: 0;
+                 color: var(--text-default); }
+  .tabs button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+  #globe { position: absolute; inset: 0; }
+  #globe_bar {
+    position: absolute; left: 50%; bottom: var(--space-400); transform: translateX(-50%); z-index: 3;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-300);
+    background: var(--bg-default); border: 1px solid var(--border-default); border-radius: var(--radius-200);
+    padding: var(--space-200) var(--space-300); font-size: 14px; width: max-content; max-width: calc(100% - 32px);
+  }
+  #globe_bar button { flex: none; padding: var(--space-200) var(--space-300); }
+  #globe_note { color: var(--text-secondary); }
   #specs { display: grid; grid-template-columns: auto 1fr; gap: var(--space-100) var(--space-400); font-size: 14px; }
   #specs dt { color: var(--text-secondary); }
   #specs dd { margin: 0; font-variant-numeric: tabular-nums; }
@@ -140,6 +155,55 @@ Whistler, BC</textarea>
   </section>
 
   <section>
+    <h2>Hockey season</h2>
+    <label class="field"><span>NHL team</span>
+      <select id="topo_team">
+        <option value="">None</option>
+        <option value="ANA">Anaheim Ducks</option>
+        <option value="BOS">Boston Bruins</option>
+        <option value="BUF">Buffalo Sabres</option>
+        <option value="CGY">Calgary Flames</option>
+        <option value="CAR">Carolina Hurricanes</option>
+        <option value="CHI">Chicago Blackhawks</option>
+        <option value="COL">Colorado Avalanche</option>
+        <option value="CBJ">Columbus Blue Jackets</option>
+        <option value="DAL">Dallas Stars</option>
+        <option value="DET">Detroit Red Wings</option>
+        <option value="EDM">Edmonton Oilers</option>
+        <option value="FLA">Florida Panthers</option>
+        <option value="LAK">Los Angeles Kings</option>
+        <option value="MIN">Minnesota Wild</option>
+        <option value="MTL">Montréal Canadiens</option>
+        <option value="NSH">Nashville Predators</option>
+        <option value="NJD">New Jersey Devils</option>
+        <option value="NYI">New York Islanders</option>
+        <option value="NYR">New York Rangers</option>
+        <option value="OTT">Ottawa Senators</option>
+        <option value="PHI">Philadelphia Flyers</option>
+        <option value="PIT">Pittsburgh Penguins</option>
+        <option value="SJS">San Jose Sharks</option>
+        <option value="SEA">Seattle Kraken</option>
+        <option value="STL">St. Louis Blues</option>
+        <option value="TBL">Tampa Bay Lightning</option>
+        <option value="TOR">Toronto Maple Leafs</option>
+        <option value="UTA">Utah Mammoth</option>
+        <option value="VAN">Vancouver Canucks</option>
+        <option value="VGK">Vegas Golden Knights</option>
+        <option value="WSH">Washington Capitals</option>
+        <option value="WPG">Winnipeg Jets</option>
+      </select>
+    </label>
+    <p class="hint">The map is fitted round every arena the team plays in this season, each with a pin
+      &mdash; home taller &mdash; and every flight between them raised on top, along the great circle,
+      thicker for a route flown again. The schedule is the NHL's own; the flights are worked out from
+      it: straight from each game to the next one's city, and home only when the next game is at home.</p>
+    <label class="check"><input type="checkbox" id="topo_preseason"><span>Include preseason</span></label>
+    <div class="field"><span>Flight line width</span>
+      <div class="slider"><input type="range" id="topo_route_w" min="0.4" max="2.5" step="0.1" value="1"><output id="topo_route_w_v">1 mm</output></div>
+    </div>
+  </section>
+
+  <section>
     <h2>The map</h2>
     <label class="field"><span>Shape</span>
       <select id="topo_shape">
@@ -152,11 +216,12 @@ Whistler, BC</textarea>
       <div class="slider"><input type="range" id="topo_size" min="60" max="250" step="5" value="150"><output id="topo_size_v">150 mm</output></div>
     </div>
     <div class="field"><span>Height stretch</span>
-      <div class="slider"><input type="range" id="topo_exag" min="0.5" max="10" step="0.5" value="1.5"><output id="topo_exag_v">&times;1.5</output></div>
+      <div class="slider"><input type="range" id="topo_exag" min="0" max="100" step="1" value="21"><output id="topo_exag_v">&times;1.5</output></div>
     </div>
     <p class="hint">Real ground is flat at any size a printer makes: a 2,000 m mountain on a 20 km map,
-      150 mm wide, is 15 mm tall. So the heights are stretched; &times;1 is true to scale. The relief
-      never passes 60 mm, and the readout says when it was held back.</p>
+      150 mm wide, is 15 mm tall. So the heights are stretched; &times;1 is true to scale, and a
+      continent wants &times;30 or more. The relief never passes 60 mm, and the readout says when it
+      was held back.</p>
     <div class="field"><span>Base</span>
       <div class="slider"><input type="range" id="topo_base" min="1.5" max="10" step="0.5" value="3"><output id="topo_base_v">3 mm</output></div>
     </div>
@@ -235,6 +300,7 @@ Whistler, BC</textarea>
       <label data-slot="9" hidden>Spruce/fir<input type="color" id="c9" value="#1b3a2f"></label>
       <label data-slot="10" hidden>Pine/larch<input type="color" id="c10" value="#a3b84f"></label>
       <label data-slot="11" hidden>Broadleaf<input type="color" id="c11" value="#b8dc8c"></label>
+      <label data-slot="12" hidden>Flights<input type="color" id="c12" value="#23395d"></label>
     </div>
     <p class="hint">A pale land colour shows the relief best: the shadows do the work. Each is its own
       solid, so the 3MF opens with each on its own filament and nothing to paint. Two swatches set to
@@ -255,7 +321,17 @@ Whistler, BC</textarea>
 </aside>
 
 <main>
+  <div class="tabs" role="group" aria-label="View">
+    <button type="button" data-view="model" aria-pressed="true">Model</button>
+    <button type="button" data-view="globe" aria-pressed="false">Globe</button>
+  </div>
   <div id="view"></div>
+  <div id="globe" hidden></div>
+  <div id="globe_bar" hidden>
+    <span id="globe_note">Click to put the middle of the map there; shift-click to drop a pin.</span>
+    <button type="button" class="secondary" id="globe_view">Use this view</button>
+    <button type="button" id="globe_build">Build it</button>
+  </div>
   <div id="building" hidden>Building&hellip; A new place fetches its map first &mdash; up to half a
     minute; changes after that are quicker.</div>
   <div id="error" role="alert" hidden></div>
@@ -273,12 +349,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const $ = id => document.getElementById(id);
 const SLIDERS = { topo_size: " mm", topo_exag: "", topo_base: " mm", topo_river: " mm",
-                  topo_depth: " mm", topo_pin_h: " mm", topo_mine_h: " mm", topo_skin: " mm" };
+                  topo_depth: " mm", topo_pin_h: " mm", topo_mine_h: " mm", topo_skin: " mm",
+                  topo_route_w: " mm" };
+/* The stretch runs from x0.5 to x100 -- a valley wants 1.5, a continent 40 --
+   so its slider is logarithmic: position 0..100 is 0.5 * 200^(p/100). */
+const exagOf = pos => { const v = 0.5 * 200 ** (pos / 100); return v < 10 ? Math.round(v * 10) / 10 : Math.round(v); };
+const exagPos = v => Math.round(100 * Math.log(v / 0.5) / Math.log(200));
 const CHECKS = ["topo_ocean", "topo_lakes", "topo_rivers", "topo_streams"];
 // one per colour slot, in the server's order: land, water, pins, mines, then
 // the forest's greens (solids.SLOTS)
 const SLOTS = ["body", "pattern", "primary", "secondary", "forest", "conifer",
-               "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf"];
+               "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf", "route"];
 const COLOUR_IDS = SLOTS.map((_, i) => `c${i}`);
 const SLOT_NAMES = Object.fromEntries([...document.querySelectorAll("[data-slot]")]
   .map(l => [SLOTS[+l.dataset.slot], l.firstChild.textContent.trim()]));
@@ -378,8 +459,10 @@ function params(format) {
   const p = { topo_pins: $("topo_pins").value, topo_centre: $("topo_centre").value,
               topo_span: $("topo_span").value, topo_shape: $("topo_shape").value,
               topo_mines: $("topo_mines").value, topo_forest: $("topo_forest").value,
+              topo_team: $("topo_team").value, topo_preseason: $("topo_preseason").checked,
               colours: COLOUR_IDS.map(id => $(id).value), format, gzip: CAN_INFLATE };
   for (const id of Object.keys(SLIDERS)) p[id] = $(id).value;
+  p.topo_exag = exagOf(+$("topo_exag").value);
   for (const id of CHECKS) p[id] = $(id).checked;
   return p;
 }
@@ -392,11 +475,14 @@ async function post(p) {
     try { msg = (await res.json()).error || msg; } catch (e) { /* not JSON */ }
     throw new Error(msg);
   }
-  const info = JSON.parse(res.headers.get("X-Model-Info") || "{}");
   const body = res.headers.get("X-Compressed") === "gzip"
     ? await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()
     : await res.arrayBuffer();
-  return [body, info];
+  if (p.format) return [body, null];
+  // a preview: a 4-byte length, the map's description as JSON, then the STL
+  const n = new DataView(body).getUint32(0, true);
+  const info = JSON.parse(new TextDecoder().decode(new Uint8Array(body, 4, n)));
+  return [body.slice(4 + n), info];
 }
 
 let seq = 0, info = null;
@@ -404,12 +490,13 @@ async function rebuild() {
   const mine = ++seq;
   $("building").hidden = false;
   try {
-    const [buffer, got] = await post(params("preview"));
+    const [buffer, got] = await post(params(""));
     if (mine !== seq) return;
     info = got;
     show(buffer, info.preview);
     swatches();
     readout();
+    globeShow();
     $("error").hidden = true;
     $("dl_3mf").disabled = $("dl_stl").disabled = false;
   } catch (e) {
@@ -442,7 +529,8 @@ function readout() {
     line("relief", `${mm(info.relief)} mm at &times;${info.exaggerate} on a ${mm(info.base)} mm base`),
     line("tallest", `${mm(info.total_z)} mm with the pins`),
     line("water", water.length ? list(water) : "none here"),
-    info.pins.length ? line("pins", list(info.pins.map(p => p.on_map ? esc(p.name) : `<s>${esc(p.name)}</s>`))) : "",
+    info.pins.length && !info.hockey ? line("pins", list(info.pins.map(p => p.on_map ? esc(p.name) : `<s>${esc(p.name)}</s>`))) : "",
+    hockeyLine(line),
     mineLine(line),
     forestLine(line),
     line("grid", `${mm(info.cell)} mm`),
@@ -457,6 +545,21 @@ function readout() {
     info.too_big ? `<span class="warn">${mm(info.w)} mm is bigger than a ${info.bed} mm bed.</span>` : "",
     `<span class="credit">${esc(info.attribution)}</span>`,
   ].join("");
+}
+
+/* A season as a trip: how far, how often, and the worst of it. */
+function hockeyLine(line) {
+  const h = info.hockey;
+  if (!h) return "";
+  const k = v => Math.round(v).toLocaleString();
+  const far = h.farthest;
+  const city = venue => (h.stops.find(st => st.venue === venue) || {}).city || venue;
+  return line("season", `${esc(h.name)}, ${h.season}: ${h.games} games${h.preseason ? " with preseason" : ""}`)
+    + line("flights", `${h.flights} flights, ${k(h.total_km)} km`
+      + (h.total_km > 60000 ? ` &mdash; ${(h.total_km / 40075).toFixed(1)} times round the world` : ""))
+    + line("arenas", `${h.stops.length}, in ${h.routes.length} routes`)
+    + line("longest", `${h.longest_trip} road games in a row, ending ${h.longest_trip_ends}`)
+    + (far ? line("farthest", `${esc(city(far.src))} to ${esc(city(far.dst))}, ${k(far.km)} km`) : "");
 }
 
 /* What the mines are: how many of each kind made it onto the map, and the
@@ -502,6 +605,7 @@ function spoolCount() {
 }
 
 function stem() {
+  if ($("topo_team").value) return `${$("topo_team").value.toLowerCase()}_season_map`;
   const first = ($("topo_centre").value || $("topo_pins").value.split("\n")[0] || "topo")
     .split(",")[0].toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "place";
   return `${first}_topo_map`;
@@ -526,7 +630,7 @@ async function download(format, button) {
 for (const [id, unit] of Object.entries(SLIDERS)) {
   $(id).addEventListener("input", () => {
     const v = $(id).value;
-    $(`${id}_v`).innerHTML = id === "topo_exag" ? `&times;${v}`
+    $(`${id}_v`).innerHTML = id === "topo_exag" ? `&times;${exagOf(+v)}`
       : id === "topo_pin_h" && !+v ? "no pins" : `${v}${unit}`;
   });
   $(id).addEventListener("change", queue);
@@ -534,12 +638,172 @@ for (const [id, unit] of Object.entries(SLIDERS)) {
 // Places rebuild when they are changed -- on leaving the box, or Enter in a
 // one-line one -- not on every key: half a place name is somewhere else.
 for (const id of ["topo_pins", "topo_centre", "topo_span", "topo_shape", "topo_mines",
-                  "topo_forest", ...CHECKS])
+                  "topo_forest", "topo_preseason", ...CHECKS])
   $(id).addEventListener("change", queue);
 for (const id of ["topo_centre", "topo_span"])
   $(id).addEventListener("keydown", e => { if (e.key === "Enter") $(id).blur(); });
 for (const id of COLOUR_IDS) $(id).addEventListener("input", () => { recolour(); spoolCount(); });
 $("topo_shape").addEventListener("change", () => { framed = false; });
+/* Choosing a team turns the map into its season: the places become its
+   arenas, the ground a continent -- stretched far more, the mines and the
+   forest off (at that scale they are noise and a slow build).  Choosing None
+   puts back what was there. */
+let beforeTeam = null;
+const SET = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event("input")); };
+$("topo_team").addEventListener("change", () => {
+  const ids = ["topo_pins", "topo_centre", "topo_span", "topo_mines", "topo_forest", "topo_exag", "topo_pin_h"];
+  if ($("topo_team").value && !beforeTeam) {
+    beforeTeam = Object.fromEntries(ids.map(id => [id, $(id).value]));
+    SET("topo_pins", ""); SET("topo_centre", ""); SET("topo_span", "");
+    SET("topo_mines", "off"); SET("topo_forest", "off");
+    SET("topo_exag", exagPos(40)); SET("topo_pin_h", 5);
+  } else if (!$("topo_team").value && beforeTeam) {
+    for (const [id, v] of Object.entries(beforeTeam)) SET(id, v);
+    beforeTeam = null;
+  }
+  framed = false;
+  queue();
+});
+
+/* ---- the globe: MapLibre, on OpenFreeMap's tiles -- the same OpenStreetMap
+   the water comes from -- loaded the first time it is asked for.  It shows
+   where the map is and its pins; a click moves the middle there. ---- */
+const EARTH_M = 40075016.686;
+let globe = null, globeReady = null;
+function loadGlobe() {
+  if (globeReady) return globeReady;
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.css";
+  document.head.appendChild(css);
+  globeReady = new Promise((ok, fail) => {
+    const js = document.createElement("script");
+    js.src = "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js";
+    js.onload = ok;
+    js.onerror = () => fail(new Error("the globe could not load"));
+    document.head.appendChild(js);
+  }).then(() => new Promise(ok => {
+    globe = new maplibregl.Map({ container: "globe", style: "https://tiles.openfreemap.org/styles/liberty",
+                                 center: [-100, 45], zoom: 1.6, attributionControl: { compact: true } });
+    globe.on("style.load", () => {
+      globe.setProjection({ type: "globe" });
+      globe.addSource("footprint", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      globe.addSource("pins", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      globe.addLayer({ id: "footprint-fill", type: "fill", source: "footprint",
+                       paint: { "fill-color": "#ff5b1f", "fill-opacity": 0.12 } });
+      globe.addLayer({ id: "footprint-line", type: "line", source: "footprint",
+                       paint: { "line-color": "#ff5b1f", "line-width": 2 } });
+      globe.addLayer({ id: "pins", type: "circle", source: "pins",
+                       paint: { "circle-radius": 5, "circle-color": "#ff5b1f",
+                                "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 } });
+      ok(globe);
+    });
+    globe.on("click", e => {
+      const { lat, lng } = e.lngLat.wrap();
+      const at = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (e.originalEvent.shiftKey) {                 // a pin, added to the list
+        const pins = $("topo_pins").value.trim();
+        SET("topo_pins", pins ? `${pins}\n${at}` : at);
+        $("globe_note").textContent = `Pin added at ${at}.`;
+        drawPins([...currentPins(), [lat, lng]]);
+        return;
+      }
+      SET("topo_centre", at);
+      if (!$("topo_span").value) SET("topo_span", spanOfView(0.25));
+      $("globe_note").textContent = `Middle at ${at}, ${$("topo_span").value} km across.`;
+      drawFootprint(lat, lng, +$("topo_span").value);
+    });
+  }));
+  return globeReady;
+}
+
+/* Web Mercator, as the model is built: u, v in 0..1. */
+const toUV = (lat, lon) => {
+  const s = Math.sin(Math.max(-85.05, Math.min(85.05, lat)) * Math.PI / 180);
+  return [(lon + 180) / 360, 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)];
+};
+const toLL = (u, v) => [Math.atan(Math.sinh(Math.PI * (1 - 2 * v))) * 180 / Math.PI, u * 360 - 180];
+
+/* The ground a map of `span` km across, centred there, covers -- the same
+   sum src/topo.py does -- as a ring of [lon, lat] for the globe. */
+function footprintRing(lat, lon, span) {
+  const shape = $("topo_shape").value, aspect = shape === "rect" ? 0.75 : 1;
+  const [uc, vc] = toUV(lat, lon);
+  const du = span * 1000 / (EARTH_M * Math.cos(lat * Math.PI / 180)), dv = du * aspect;
+  const ring = [];
+  if (shape === "round")
+    for (let i = 0; i <= 96; i++) {
+      const a = i / 96 * 2 * Math.PI;
+      ring.push(toLL(uc + Math.cos(a) * du / 2, vc + Math.sin(a) * dv / 2));
+    }
+  else {
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]];
+    for (let c = 0; c < 4; c++)                 // each edge in 24 steps, so it curves on the globe
+      for (let i = 0; i < 24; i++) {
+        const f = i / 24, [a0, b0] = corners[c], [a1, b1] = corners[c + 1];
+        ring.push(toLL(uc + (a0 + (a1 - a0) * f) * du / 2, vc + (b0 + (b1 - b0) * f) * dv / 2));
+      }
+    ring.push(ring[0]);
+  }
+  return ring.map(([la, lo]) => [lo, la]);
+}
+function drawFootprint(lat, lon, span) {
+  if (!globe || !span) return;
+  globe.getSource("footprint").setData({ type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [footprintRing(lat, lon, span)] } });
+}
+const currentPins = () => (info ? info.pins.filter(p => p.on_map).map(p => [p.lat, p.lon]) : []);
+function drawPins(pins) {
+  if (!globe) return;
+  globe.getSource("pins").setData({ type: "FeatureCollection", features: pins.map(([la, lo]) =>
+    ({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lo, la] } })) });
+}
+/* The width of what the globe shows, in km at its middle -- times `share`. */
+function spanOfView(share) {
+  const b = globe.getBounds(), c = globe.getCenter();
+  let deg = b.getEast() - b.getWest();
+  if (!(deg > 0) || deg > 360) deg = 360;
+  const km = deg * 111.32 * Math.cos(c.lat * Math.PI / 180) * share;
+  return Math.max(1, Math.min(20000, km >= 100 ? Math.round(km) : Math.round(km * 10) / 10));
+}
+/* After every build: the map as built -- its real middle and span -- and its
+   pins; and when that is somewhere new, the globe goes to look at it. */
+let flownTo = "";
+function globeShow() {
+  if (!globe || !info) return;
+  drawFootprint(info.centre[0], info.centre[1], info.span_km);
+  drawPins(currentPins());
+  const where = `${info.centre} ${info.span_km}`;
+  if (where !== flownTo && !$("globe").hidden) {
+    flownTo = where;
+    const z = Math.max(0.8, Math.min(11, Math.log2(40075 / Math.max(info.span_km, 1)) + 0.3));
+    globe.flyTo({ center: [info.centre[1], info.centre[0]], zoom: z, duration: 1500 });
+  }
+}
+
+function showView(which) {
+  for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-pressed", b.dataset.view === which);
+  $("view").hidden = which !== "model";
+  $("globe").hidden = $("globe_bar").hidden = which !== "globe";
+  if (which === "globe")
+    loadGlobe().then(g => {
+      g.resize();
+      globeShow();
+    }).catch(e => { $("error").textContent = e.message; $("error").hidden = false; });
+  else resize();
+}
+for (const b of document.querySelectorAll(".tabs button"))
+  b.addEventListener("click", () => showView(b.dataset.view));
+$("globe_view").addEventListener("click", () => {
+  if (!globe) return;
+  const c = globe.getCenter().wrap();
+  SET("topo_centre", `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`);
+  SET("topo_span", spanOfView(0.8));
+  $("globe_note").textContent = `Middle at ${$("topo_centre").value}, ${$("topo_span").value} km across.`;
+  drawFootprint(c.lat, c.lng, +$("topo_span").value);
+});
+$("globe_build").addEventListener("click", () => { framed = false; showView("model"); rebuild(); });
+
 $("dl_3mf").addEventListener("click", e => download("3mf", e.currentTarget));
 $("dl_stl").addEventListener("click", e => download("stl", e.currentTarget));
 resize();

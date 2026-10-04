@@ -12,6 +12,7 @@ import argparse
 import gzip
 import json
 import re
+import struct
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import trimesh
 
+import nhl
 import solids
 import topo
 
@@ -32,7 +34,8 @@ MATERIAL = re.compile(r"[A-Za-z0-9][A-Za-z0-9 +._-]{0,23}$")
 GEOMETRY = ("topo_pins", "topo_centre", "topo_span", "topo_size", "topo_shape",
             "topo_exag", "topo_base", "topo_depth", "topo_river", "topo_pin_h",
             "topo_ocean", "topo_lakes", "topo_rivers", "topo_streams",
-            "topo_mines", "topo_mine_h", "topo_forest", "topo_skin")
+            "topo_mines", "topo_mine_h", "topo_forest", "topo_skin",
+            "topo_team", "topo_preseason", "topo_route_w")
 RECENT = {}
 BUILD = threading.Lock()
 
@@ -94,6 +97,18 @@ def model(params):
                 pins = pins.splitlines()
             pins = [str(q).strip() for q in pins if str(q).strip()][:topo.MAX_PINS]
             centre = str(params.get("topo_centre") or "").strip()
+            # A hockey team's season: its arenas are pins too, and its
+            # flights the routes drawn between them.
+            team = str(params.get("topo_team") or "").strip().upper()
+            trip, routes = None, []
+            if team:
+                trip = nhl.season_trip(topo.fetch, team, preseason=flag("topo_preseason", False),
+                                       geocode=topo.geocode)
+                at = {st["venue"]: (st["lat"], st["lon"]) for st in trip["stops"]}
+                pins = [dict(name=st["city"], lat=st["lat"], lon=st["lon"], big=st["home"])
+                        for st in trip["stops"]] + pins
+                routes = [dict(points=nhl.great_circle(at[r["a"]], at[r["b"]]), times=r["times"])
+                          for r in trip["routes"]]
             if not pins and not centre:
                 raise ValueError("say where: a place in the middle, or a pin or two")
             shape = params.get("topo_shape") or "rect"
@@ -110,7 +125,10 @@ def model(params):
                 ocean=flag("topo_ocean", True), lakes=flag("topo_lakes", True),
                 rivers=flag("topo_rivers", True), streams=flag("topo_streams", False),
                 mines=mines, mine_h=num("topo_mine_h", topo.MINE),
-                forest=forest, skin=num("topo_skin", topo.SKIN))
+                forest=forest, skin=num("topo_skin", topo.SKIN),
+                routes=routes, route_w=num("topo_route_w", topo.ROUTE_W))
+            if trip:
+                RECENT[key][1]["hockey"] = {k: v for k, v in trip.items() if k != "legs"}
             while len(RECENT) > 8:
                 del RECENT[next(iter(RECENT))]
         parts, info = RECENT[key]
@@ -180,15 +198,22 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:             # a place that cannot be found, mostly
             payload = json.dumps({"error": str(exc)}).encode()
             return self._send(400, payload, "application/json")
-        headers = [("X-Model-Info", json.dumps(info))]
-        # An STL squashes to about a third of its size; the page asks for that
-        # when it can inflate it itself, and a hosted function has a body-size
-        # ceiling a big map would hit.
-        if ctype == "model/stl" and params.get("gzip") and params.get("format") != "stl":
-            data = gzip.compress(data, compresslevel=6)
-            headers.append(("X-Compressed", "gzip"))
+        headers = []
+        if params.get("format") not in ("3mf", "stl"):
+            # The preview: what the map is, as JSON, then the STL to draw --
+            # in the body, as a 4-byte length and the two, because a list of
+            # mines or a hockey season is more than a header should carry.
+            meta = json.dumps(info).encode()
+            data = struct.pack("<I", len(meta)) + meta + data
+            ctype = "application/x-topo-preview"
+            # It squashes to about a third of its size; the page asks for that
+            # when it can inflate it itself, and a hosted function has a
+            # body-size ceiling a big map would hit.
+            if params.get("gzip"):
+                data = gzip.compress(data, compresslevel=6)
+                headers.append(("X-Compressed", "gzip"))
         print(f"  topo {info['w']:5.1f} x {info['h']:5.1f} mm  {info['span_km']:6.1f} km  "
-              f"{ctype[6:]:3s} {len(data) / 1024:6.0f} kB")
+              f"{params.get('format') or 'preview':7s} {len(data) / 1024:6.0f} kB")
         self._send(200, data, ctype, headers)
 
 

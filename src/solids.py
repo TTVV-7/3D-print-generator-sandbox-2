@@ -16,12 +16,14 @@ FACE = 0.6
 
 # The colours, in the order the 3MF's materials and the viewer use them.
 # For a map: land, water, pins and mines, then the forest's shades of green
-# -- one for all of it, conifer and broadleaf, or one per species group.
+# -- one for all of it, conifer and broadleaf, or one per species group --
+# and last the routes raised over it all.
 SLOTS = ("body", "pattern", "primary", "secondary",
-         "forest", "conifer", "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf")
+         "forest", "conifer", "fir", "hemlock", "cedar", "spruce", "pine", "broadleaf",
+         "route")
 COLOURS = ("#f5f2ec", "#5aa9e6", "#ff5b1f", "#c9a227",
            "#4f7d4a", "#2f5e3a", "#2d5a3d", "#4f8f5f", "#6b8f3a", "#1b3a2f", "#a3b84f",
-           "#b8dc8c")
+           "#b8dc8c", "#23395d")
 
 
 def boolean(op, meshes):

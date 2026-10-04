@@ -3,13 +3,14 @@
 A piece of the real world in relief, ready to 3D print: the ground from
 satellite elevation data, the sea, lakes and rivers in blue, the forest in
 shades of green by its leading tree species, a marker on every mine, and a
-map pin standing on each place you name.  Plain Python -- shapely for the
+map pin standing on each place you name -- or a whole NHL team's season,
+every arena pinned and every flight raised across a continent.  Plain Python -- shapely for the
 2-D work, trimesh and manifold for the solids.
 
 Moved here from [TTVV-7/3D-print-sandbox](https://github.com/TTVV-7/3D-print-sandbox),
 where it was the sixth shape in that app's generator.  This repository has
 the map on its own: `src/topo.py` builds it, `src/layers.py` fetches the
-mines and the forests, `src/solids.py` is the part of the sandbox's
+mines and the forests, `src/nhl.py` turns a team's schedule into a trip, `src/solids.py` is the part of the sandbox's
 `cards.py` it needs (the booleans, the plate and the two 3MF writers), and
 the page is a topo-only one.
 
@@ -47,6 +48,46 @@ Left, Squamish and Whistler, fitted round the two pins, the heights
 stretched 2.5 times.  Right, a round one of the Salish Sea with Stanley Park
 and Victoria pinned: the Fraser running out through its delta on the right,
 the Gulf Islands down the middle.
+
+## Finding the place: the globe
+
+The *Globe* tab over the viewer is a globe you can spin and zoom from the
+whole planet down to a street -- MapLibre, on OpenFreeMap's tiles, the same
+OpenStreetMap the water comes from.  It shows the map you have as an orange
+outline with its pins, and flies to it whenever it moves somewhere new.
+
+- **Click** to put the middle of the map there (and, if *Across* is empty, a
+  span a quarter as wide as the view).
+- **Shift-click** to drop a pin there.
+- **Use this view** takes the middle and the span from what the globe shows.
+- **Build it** goes back to the model and builds.
+
+The outline is a rectangle on the flat map, so on the globe a big one curves
+-- that is the Mercator projection the map is built in.
+
+## A hockey season
+
+Pick an NHL team and the map becomes its season: fitted round every arena it
+plays in, a pin on each (home a size taller), and every flight raised on top
+of the ground and the sea, following the great circle -- so a long flight
+bows north, as the plane does -- and wider for a route flown again.  The
+readout has the flights, the km, the longest run of road games and the
+farthest hop.
+
+The schedule is the NHL's own, from `api-web.nhle.com`, fetched fresh rather
+than cached on disk.  The flights are not published, so they are worked out
+from it: the team flies from each game straight to the next one's city, and
+home only when the next game is at home.  Real teams sometimes go home in
+the middle of a long trip; this draws the trips the schedule implies.
+Arenas, and the other rinks on the schedule -- Helsinki and Düsseldorf for
+the Global Series, the outdoor games -- are in `src/nhl_venues.json`; a new
+one is looked up the first time it turns up.
+
+A continent at 150 mm is 1 : 40,000,000, so choosing a team also turns the
+height stretch up to x40 (the Rockies come out a few mm), shrinks the pins,
+and turns the mines and the forest off -- at that scale they are noise, and
+slow.  Choosing *None* puts back what was there.  The height-stretch slider
+is logarithmic, x0.5 to x100, for the same reason.
 
 ## Where the map comes from
 
@@ -161,7 +202,8 @@ woodland, from the same vector tiles as the water, in the one green.
 
 ## How many colours
 
-Land, water, pins and mines are four; the forest adds one, two or six.  A
+Land, water, pins and mines are four; the forest adds one, two or six, and
+a hockey season's flights one more.  A
 four-head printer holds four, so the page says when a map needs more.  Two
 swatches set to the same colour share a filament in the 3MF, so the fix is
 usually to give the mines the pins' colour, or colour the forest more

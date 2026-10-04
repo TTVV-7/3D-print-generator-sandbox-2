@@ -72,7 +72,9 @@ ASPECT = 0.75             # a "rect" is landscape, 4 : 3
 
 # How much ground it covers when nothing else says, in km across.
 SPAN = 20.0
-SPAN_MIN, SPAN_MAX = 0.5, 2000.0
+# Up to a continent and an ocean: a hockey season is Vancouver to Florida,
+# and some years Helsinki.
+SPAN_MIN, SPAN_MAX = 0.5, 20000.0
 # Room left round the pins when the map is fitted to them, as a share of
 # their spread -- so the outermost pin is not standing on the edge.
 PAD = 0.18
@@ -84,7 +86,7 @@ BASE = 3.0
 # 20 km map, at 150 mm, is 15 mm tall -- and a 200 m hill is 1.5.  So it is
 # stretched, and the readout says by how much.
 EXAGGERATE = 1.5
-EXAGGERATE_MAX = 20.0
+EXAGGERATE_MAX = 100.0
 # The tallest the relief is allowed to get, whatever the stretch says: a
 # thin tall peak on a big map is a thing that snaps off.
 RELIEF_MAX = 60.0
@@ -131,6 +133,15 @@ SKIN = 0.6
 MIN_FOREST = 2.0
 FOREST_PX = 1600          # the most pixels across the species picture is asked for
 
+# Routes -- a hockey team's flights, say -- are raised lines laid over the
+# ground and the water, ROUTE_H mm proud, ROUTE_W mm wide for one trip and
+# wider for a route flown again, up to ROUTE_MAX times as wide.  A home pin
+# ("big") is HOME times as tall as the rest.
+ROUTE_W = 1.0
+ROUTE_H = 0.8
+ROUTE_MAX = 2.5
+HOME = 1.4
+
 BED = 256.0
 MAX_PINS = 24             # each is a lookup, and a lookup is a second
 
@@ -163,23 +174,29 @@ RIVER_AREA = {"river"}
 
 _MEMO = {}
 _MEMO_LOCK = threading.Lock()
+_FRESH = {}
+FRESH = 600.0
 CACHE = Path(os.environ.get("TOPO_CACHE") or Path(tempfile.gettempdir()) / "topo-tiles")
 
 
-def fetch(url, timeout=25, form=None):
+def fetch(url, timeout=25, form=None, cache=True):
     """The bytes at `url`, from memory, from the disk cache, or from the
     network -- in that order.  Tiles do not change between one build and
     the next, and a slider dragged across the page is a dozen builds of the
     same tiles.  With `form`, a POST of it, cached the same way: a
-    request too long to go in a URL."""
+    request too long to go in a URL.  With `cache` False -- for something
+    that changes, like a hockey schedule -- it is kept in memory for
+    FRESH seconds and never on disk."""
     key = url if form is None else url + "\n" + form
     with _MEMO_LOCK:
         if key in _MEMO:
             return _MEMO[key]
+        if not cache and key in _FRESH and time.time() - _FRESH[key][0] < FRESH:
+            return _FRESH[key][1]
     path = CACHE / hashlib.sha1(key.encode()).hexdigest()
     data = None
     try:
-        data = path.read_bytes()
+        data = path.read_bytes() if cache else None
     except OSError:
         pass
     if data is None:
@@ -200,6 +217,10 @@ def fetch(url, timeout=25, form=None):
             data = gzip.decompress(data)
         if b"ServiceException" in data[:2000]:
             return data                   # a map server's error: not one to keep
+        if not cache:
+            with _MEMO_LOCK:
+                _FRESH[key] = (time.time(), data)
+            return data
         try:
             CACHE.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
@@ -707,7 +728,8 @@ def area(centre, span, pins, w, h):
 def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXAGGERATE,
           base=BASE, depth=DEPTH, river=RIVER, streams=False, pin_h=PIN,
           ocean=True, lakes=True, rivers=True, mines="mines", mine_h=MINE, forest="two",
-          skin=SKIN, colours=solids.COLOURS, label=""):
+          skin=SKIN, routes=(), route_w=ROUTE_W, route_h=ROUTE_H,
+          colours=solids.COLOURS, label=""):
     """One topographic map, as printable parts plus the numbers worth knowing.
 
     `pins` are place names or "lat, lon" strings; `centre` is one too, or
@@ -719,7 +741,9 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
     get a marker ("off", or a key of layers.SHOW) and `mine_h` the tallest
     marker's height; `forest` is how the forest is coloured ("off", "one"
     shade, conifer and broadleaf as "two", or by "species" group) and `skin`
-    how thick that colour is.
+    how thick that colour is.  `routes` are lines to raise over it all, each
+    dict(points=[(lat, lon), ...], times=n): a leg flown n times.  A pin may
+    be a dict(name, lat, lon, big) rather than a place to look up.
     """
     if shape not in SHAPES:
         raise ValueError(f"no such map shape: {shape}")
@@ -739,6 +763,10 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
 
     places = []
     for q in pins or ():
+        if isinstance(q, dict):           # already found: an arena, say
+            places.append(dict(query=q["name"], lat=float(q["lat"]), lon=float(q["lon"]),
+                               name=q["name"], big=bool(q.get("big"))))
+            continue
         q = (q or "").strip()
         if q:
             lat, lon, name = geocode(q)
@@ -871,7 +899,7 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         if not fits or pin_h <= 0:
             continue
         gz = float(_sample(xs, ys, np.maximum(z_ground, z_surface), x, y))
-        marks.append(pin_mesh(pin_h, x, y, gz))
+        marks.append(pin_mesh(pin_h * (HOME if p.get("big") else 1.0), x, y, gz))
     if marks:
         pin_solid = solids.union(marks)
 
@@ -990,6 +1018,35 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         if wet_solid is not None:
             wet_solid = solids.boolean("intersection", [wet_solid, disc])
 
+    # --- the routes: raised lines over everything, following the ground
+    route_solid = None
+    route_w = min(max(float(route_w), 0.3), 4.0)
+    route_h = min(max(float(route_h), 0.2), 4.0)
+    if routes:
+        lines = []
+        for r in routes:
+            pts = [to_mm(*to_world(lat, lon)) for lat, lon in r["points"]]
+            if len(pts) < 2:
+                continue
+            width = route_w * min(1.0 + 0.25 * (max(int(r.get("times", 1)), 1) - 1), ROUTE_MAX)
+            lines.append(LineString(pts).buffer(width / 2, 8))
+        edge = frame.buffer(-0.05) if shape == "round" else frame
+        flown = unary_union(lines).intersection(edge) if lines else None
+        polys = [p.buffer(0) for p in pieces(flown) if p.area > 0.05]
+        prism = solid_of(polys, -1.0, top) if polys else None
+        if prism is not None:
+            # a cell wider all round than the map, like the forest's
+            over = heightfield(np.concatenate([[xs[0] - 1], xs, [xs[-1] + 1]]),
+                               np.concatenate([[ys[0] - 1], ys, [ys[-1] + 1]]),
+                               np.pad(np.maximum(z_ground, z_surface) + route_h, 1, mode="edge"),
+                               floor=-0.5)
+            under = [m for m in (land, wet_solid, pin_solid, mine_solid, *woods.values())
+                     if m is not None and len(m.faces)]
+            route_solid = solids.boolean("difference", [solids.boolean(
+                "intersection", [prism, over])] + under)
+            if not len(route_solid.faces):
+                route_solid = None
+
     # A flat lake is a few thousand grid triangles that all say the same
     # thing; simplifying within a few hundredths of a mm keeps the shape and
     # loses two thirds of the file.
@@ -997,6 +1054,7 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
     wet_solid = simplify(wet_solid) if wet_solid is not None else None
     pin_solid = simplify(pin_solid) if pin_solid is not None else None
     mine_solid = simplify(mine_solid) if mine_solid is not None else None
+    route_solid = simplify(route_solid) if route_solid is not None else None
     woods = {slot: simplify(m) for slot, m in woods.items()}
 
     groups = [dict(slot="body", element="land", face="body", mesh=land)]
@@ -1006,6 +1064,8 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         groups.append(dict(slot="primary", element="pins", face="front", mesh=pin_solid))
     if mine_solid is not None and len(mine_solid.faces):
         groups.append(dict(slot="secondary", element="mines", face="front", mesh=mine_solid))
+    if route_solid is not None and len(route_solid.faces):
+        groups.append(dict(slot="route", element="routes", face="front", mesh=route_solid))
     for slot in solids.SLOTS:
         if slot in woods and len(woods[slot].faces):
             groups.append(dict(slot=slot, element="forest", face="front", mesh=woods[slot]))
@@ -1049,6 +1109,7 @@ def build(pins=(), centre="", span=None, size=SIZE, shape="rect", exaggerate=EXA
         mine_sites=[dict(name=m["name"], status=m["status"], lat=round(m["lat"], 5),
                          lon=round(m["lon"], 5), commodities=m["commodities"])
                     for m in sites if m.get("on_map")],
+        routes=len(routes), route_w=round(route_w, 2), route_h=round(route_h, 2),
         forest=forest, skin=round(skin, 2), forest_source=forest_source,
         forest_note=forest_note, forest_share=forest_share,
         slots=[g["slot"] for g in groups], parts=["map"],
